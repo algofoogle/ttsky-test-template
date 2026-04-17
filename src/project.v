@@ -24,7 +24,7 @@ module tt_um_algofoogle_test (
     .clk(clk),
     .rst(~rst_n),
     .dac_out(uo_out[0])
-  )
+  );
 
   // List all unused inputs to prevent warnings
   wire _unused = &{ena, ui_in, 1'b0};
