@@ -9,12 +9,12 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+Ancient spirits convert vibrations to harmonies.
 
 ## How to test
 
-Explain how to use your project
+Plug in and have faith.
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+Eyes to see, ears to listen.
