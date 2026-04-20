@@ -6,7 +6,7 @@
 module synth (
     input  wire clk,
     input  wire rst,
-    output wire dac_out
+    output wire [7:0] sample_out
 );
 
     // ------------------------------------------------------------------------
@@ -142,15 +142,7 @@ module synth (
     wire [8:0] mix_sum = {1'b0, vtri0} + {1'b0, vtri1};
     wire [7:0] raw_out = mix_sum[8:1];
 
-    // ------------------------------------------------------------------------
-    // 1-bit sigma-delta DAC, 8-bit input
-    // ------------------------------------------------------------------------
-    sigmadelta_dac_8 dac (
-        .clk(clk),
-        .rst(rst),
-        .sample_in(raw_out),
-        .dac_out(dac_out)
-    );
+    assign sample_out = raw_out;
 
 endmodule
 
@@ -172,26 +164,5 @@ module triangle_voice_24x8(
             phase_acc <= 24'd0;
         else
             phase_acc <= phase_next;
-    end
-endmodule
-
-
-module sigmadelta_dac_8(
-    input  wire       clk,
-    input  wire       rst,
-    input  wire [7:0] sample_in,
-    output reg        dac_out
-);
-    reg  [7:0] sd_err;
-    wire [8:0] sd_sum = {1'b0, sd_err} + {1'b0, sample_in};
-
-    always @(posedge clk) begin
-        if (rst) begin
-            sd_err  <= 8'd0;
-            dac_out <= 1'b0;
-        end else begin
-            sd_err  <= sd_sum[7:0];
-            dac_out <= sd_sum[8];
-        end
     end
 endmodule
