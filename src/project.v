@@ -17,13 +17,16 @@ module tt_um_algofoogle_test (
 );
 
   assign uo_out[7:1] = 0;
-  assign uio_out = 0;
-  assign uio_oe  = 0;
+  assign uio_out[6:0] = 0;
+  assign uio_oe[6:0] = 0;
+  assign uio_oe[7] = 1;
+
+  assign uo_out[0] = uio_out[7];
 
   synth synth(
     .clk(clk),
     .rst(~rst_n),
-    .dac_out(uo_out[0])
+    .dac_out(uio_out[7])
   );
 
   // List all unused inputs to prevent warnings
