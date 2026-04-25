@@ -111,10 +111,10 @@ module newsynth_v2(
     // wire [34:0] prod2 = gate2 ? 0 : ( t * (note_lut(7, 5)-(t[0]&down[2])+(t[0]&up[2])) ); //{ct[13:0], ft} * (F_G4<<1);
     // wire [34:0] prod3 = gate3 ? 0 : ( t * (note_lut(0, octave)-(t[0]&down[3])+(t[0]&up[3])) ); //{ct[13:0], ft} * (F_C4<<0);
 
-    wire [34:0] prod0 = gate0 ? 0 : ( t * (note_lut(n0, o0)));
-    wire [34:0] prod1 = gate1 ? 0 : ( t * (note_lut(n1, o1)));
-    wire [34:0] prod2 = gate2 ? 0 : ( t * (note_lut(n2, o2)));
-    wire [34:0] prod3 = gate3 ? 0 : ( t * (note_lut(n3, o3)));
+    wire [34:0] prod0 = gate0 ? 0 : ( t * (note_lut(n0, o0)+{d0,1'b0}));
+    wire [34:0] prod1 = gate1 ? 0 : ( t * (note_lut(n1, o1)+{d1,1'b0}));
+    wire [34:0] prod2 = gate2 ? 0 : ( t * (note_lut(n2, o2)+{d2,1'b0}));
+    wire [34:0] prod3 = gate3 ? 0 : ( t * (note_lut(n3, o3)+{d3,1'b0}));
 
     // IDEAS:
     //  - Add t[0] to some or all: Makes a nice "dynamic" phasing effect.
@@ -180,8 +180,14 @@ module newsynth_v2(
     wire [2:0] a1;
     wire [2:0] a2;
     wire [2:0] a3;
+    wire d0;
+    wire d1;
+    wire d2;
+    wire d3;
 
     sequencer musical_events(
+        .clk(clk),
+        .reset(reset),
         .t(ct),
         .o0(o0),
         .o1(o1),
@@ -194,17 +200,24 @@ module newsynth_v2(
         .a0(a0),
         .a1(a1),
         .a2(a2),
-        .a3(a3)
+        .a3(a3),
+        .d0(d0),
+        .d1(d1),
+        .d2(d2),
+        .d3(d3)
     );
 
 endmodule
 
 
 module sequencer(
+    input clk,
+    input reset,
     input [13:0] t, // ~8.135ms granularity.
     output reg [ 2:0] o0, output reg [ 2:0] o1, output reg [ 2:0] o2, output reg [ 2:0] o3, // Octaves.
     output reg [ 3:0] n0, output reg [ 3:0] n1, output reg [ 3:0] n2, output reg [ 3:0] n3, // Notes.
-    output reg [ 2:0] a0, output reg [ 2:0] a1, output reg [ 2:0] a2, output reg [ 2:0] a3  // Amplitude (bit-shift).
+    output reg [ 2:0] a0, output reg [ 2:0] a1, output reg [ 2:0] a2, output reg [ 2:0] a3, // Amplitude (bit-shift).
+    output reg        d0, output reg        d1, output reg        d2, output reg        d3  // Detune.
 );
 
     localparam [63:0] SRM = 314687500; // clk/800*10000
@@ -225,32 +238,70 @@ module sequencer(
     localparam As  = 10;
     localparam B   = 11;
     localparam R   = 15;
+
+
+    reg [1:0] div3;
+    always @(posedge clk) begin
+        if (reset)
+            div3 <= 0;
+        else if (t[7])
+            div3 <= (div3==2) ? 0 : div3+1;
+    end
+
+    assign o1 = 0; assign o2 = 0; assign o3 = 0;
+    assign n1 = 0; assign n2 = 0; assign n3 = 0;
+    assign a1 = 0; assign a2 = 0; assign a3 = 0;
+    assign d1 = 0; assign d2 = 0; assign d3 = 0;
+
+    assign o0 = 4;
+    assign a0 = 0;
+    assign d0 = 0;
+
     always @(*) begin
-        casez (t[13:3]) // ~32.54ms granularity, and up to 4096 events: ~133 seconds. NOTE: 32 events is a little over 1 second.
-            // 1st 16 notes (0.5s) are C4, and subsequent are just a major scale up to C5:
-            11'h?0?: begin o0= 3; n0=C; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            11'h?1?: begin o0= 3; n0=D; a0=1; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            11'h?2?: begin o0= 3; n0=E; a0=2; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            11'h?3?: begin o0= 3; n0=F; a0=3; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            11'h?4?: begin o0= 3; n0=G; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            11'h?5?: begin o0= 3; n0=A; a0=1; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            11'h?6?: begin o0= 3; n0=B; a0=2; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            11'h?7?: begin o0= 4; n0=C; a0=3; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-            // Then a chord for the rest of the time...
-            default: begin o0= 4; n0=C; a0=4; /* o1= 4; n1= R; */ end
-            // Because most significant nibble is also covered by '?', the above sequence should also repeat continuously.
+        casez ({t[13:9],div3,t[6:3]})
+            11'h?0?: n0 = C;
+            11'h?1?: n0 = D;
+            11'h?2?: n0 = E;
+
+            11'h?4?: n0 = F;
+            11'h?5?: n0 = G;
+            11'h?6?: n0 = A;
+
+            default: n0 = B;
         endcase
     end
 
-    assign o1 = o0;
-    assign n1 = n0;
-    assign a1 = 1;
 
-    assign n2 = C;
-    assign o2 = 1;
-    assign a2 = 0;
-    assign n3 = C;
-    assign o3 = 2;
-    assign a3 = 0;
+    // always @(*) begin
+    //     casez (t[13:3]) // ~32.54ms granularity, and up to 4096 events: ~133 seconds. NOTE: 32 events is a little over 1 second.
+    //         // 1st 16 notes (0.5s) are C4, and subsequent are just a major scale up to C5:
+    //         11'h?0?: begin o0= 3; n0=C; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         11'h?1?: begin o0= 3; n0=D; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         11'h?2?: begin o0= 3; n0=E; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         11'h?3?: begin o0= 3; n0=F; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         11'h?4?: begin o0= 3; n0=G; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         11'h?5?: begin o0= 3; n0=A; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         11'h?6?: begin o0= 3; n0=B; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         11'h?7?: begin o0= 4; n0=C; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    //         // Then a chord for the rest of the time...
+    //         default: begin o0= 4; n0=C; a0=0; /* o1= 4; n1= R; */ end
+    //         // Because most significant nibble is also covered by '?', the above sequence should also repeat continuously.
+    //     endcase
+    // end
+
+    // assign d1 = t[10];// & ~t[9];
+
+    // assign {d0,d2,d3} = 3'b000;
+
+    // assign o1 = o0;
+    // assign n1 = n0;
+    // assign a1 = 1;
+
+    // assign n2 = C;
+    // assign o2 = 1;
+    // assign a2 = 0;
+    // assign n3 = C;
+    // assign o3 = 2;
+    // assign a3 = 0;
 
 endmodule
