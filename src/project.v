@@ -40,16 +40,22 @@ module tt_um_algofoogle_test (
   assign {R,G,B} = rgb & {6{video_active}};
 
   assign rgb =
-    (h < 320) ? {sample[7:6], sample[4:3], sample[1:0]} :
-                {4'b0000, {2{speaker}}};
+    (h < 256) ? ((sample >= h[7:0]) ? 6'b11_11_00 : 6'b00_00_10) : // Waveform.
+    (h < 384) ? {sample[7:6], sample[4:3], sample[1:0]} :         // Colour bars.
+                {4'b0000, {2{speaker}}};                          // 1-bit DAC diffusion.
 
   assign uo_out = {hsync, B[0], G[0], R[0], vsync, B[1], G[1], R[1]};
+
+  wire line_end; // Single pulse at the last clock of each horizontal VGA line (CLK/800).
+  wire frame_end;
 
   hvsync_generator hvsync_gen(
     .clk(clk),
     .reset(~rst_n),
     .hsync(hsync),
     .vsync(vsync),
+    .line_end(line_end),
+    .frame_end(frame_end),
     .display_on(video_active),
     .hpos(h),
     .vpos(v)
@@ -57,11 +63,42 @@ module tt_um_algofoogle_test (
 
   wire [7:0] sample;
 
-  synth synth(
+  // synth synth(
+  //   .clk(clk),
+  //   .rst(~rst_n),
+  //   .sample_out(sample)
+  // );
+
+  // newsynth synth(
+  //   .clk(clk),
+  //   .reset(~rst_n),
+  //   .sample(sample)
+  // );
+
+  wire synth_tick = (h==399 || h==799); //line_end
+
+  newsynth_v2 synth(
     .clk(clk),
-    .rst(~rst_n),
-    .sample_out(sample)
+    .reset(~rst_n),
+    .tick(synth_tick),
+    .up(ui_in[7:4]),
+    .down(ui_in[3:0]),
+    .sample(sample)
   );
+
+
+
+  // synth_v2 synth(
+  //   .clk(clk),
+  //   .rst(~rst_n),
+  //   .sample_out(sample)
+  // );
+
+  // synth_gpt33ff synth(
+  //   .clk(clk),
+  //   .rst_n(rst_n),
+  //   .audio_out(sample)
+  // );
 
   // 1-bit sigma-delta DAC, 8-bit input
   sigmadelta_dac_8 dac (
@@ -106,14 +143,16 @@ To use:
 - Add a 3-bit (or more) "rgb" output to the top level
 */
 
-module hvsync_generator(clk, reset, hsync, vsync, display_on, hpos, vpos);
-
-  input clk;
-  input reset;
-  output reg hsync, vsync;
-  output display_on;
-  output reg [9:0] hpos;
-  output reg [9:0] vpos;
+module hvsync_generator(
+  input clk,
+  input reset,
+  output reg hsync, vsync,
+  output display_on,
+  output reg [9:0] hpos,
+  output reg [9:0] vpos,
+  output wire line_end,
+  output wire frame_end
+);
 
   // declarations for TV-simulator sync parameters
   // horizontal constants
@@ -136,6 +175,9 @@ module hvsync_generator(clk, reset, hsync, vsync, display_on, hpos, vpos);
 
   wire hmaxxed = (hpos == H_MAX) || reset;	// set when hpos is maximum
   wire vmaxxed = (vpos == V_MAX) || reset;	// set when vpos is maximum
+
+  assign line_end = hmaxxed;
+  assign frame_end = vmaxxed;
   
   // horizontal position counter
   always @(posedge clk)

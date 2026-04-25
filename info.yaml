@@ -18,6 +18,10 @@ project:
   # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
   source_files:
     - synth.v
+    - synth_v2.v
+    - synth_gpt33ff.v
+    - newsynth.v
+    - newsynth_v2.v
     - project.v
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
