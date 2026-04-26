@@ -147,6 +147,16 @@ module newsynth_v2(
         end
     endfunction
 
+    function [7:0] saw8;
+        input [8:0] ph;
+        saw8 = ph[8:1];
+    endfunction
+
+    function [7:0] square8;
+        input [8:0] ph;
+        square8 = {8{ph[8]}};
+    endfunction
+
     // // Sample values computed at 'tick' for each sample...
     // //NOTE: 9 bits go from phase (prodN) into tri8() to get 8-bit sample output.
     // wire [9:0] sample_wide =
@@ -161,11 +171,17 @@ module newsynth_v2(
 
     // Sample values computed at 'tick' for each sample...
     //NOTE: 9 bits go from phase (prodN) into tri8() to get 8-bit sample output.
+
+    wire g0 = a0 >= 4;
+    wire g1 = 0; //a1 >= 4;
+    wire g2 = 0; //a2 >= 4;
+    wire g3 = 0; //a3 >= 4;
+
     wire [9:0] sample_wide =
-        {2'b00, tri8(prod0[16:8])>>a0} + //>>a0} +
-        {2'b00, tri8(prod1[16:8])} + //>>a1} +
-        {2'b00, tri8(prod2[16:8])} + //>>a2} +
-        {2'b00, tri8(prod3[16:8])}; //>>a3};
+        {2'b00, {8{~g0}} & square8(prod0[16:8])>>a0} + //>>a0} +
+        {2'b00, {8{~g1}} & saw8(prod1[16:8])>>a1} + //>>a1} +
+        {2'b00, {8{~g2}} & tri8(prod2[16:8])>>a2} + //>>a2} +
+        {2'b00, {8{~g3}} & tri8(prod3[16:8])>>a3}; //>>a3};
     assign sample = sample_wide[9:2];
 
     wire [2:0] o0;
@@ -237,38 +253,140 @@ module sequencer(
     localparam A   = 9;
     localparam As  = 10;
     localparam B   = 11;
-    localparam R   = 15;
+    localparam _   = 15;
 
 
     reg [1:0] div3;
     always @(posedge clk) begin
         if (reset)
             div3 <= 0;
-        else if (t[7])
+        else if (t[8])
             div3 <= (div3==2) ? 0 : div3+1;
     end
 
-    assign o1 = 0; assign o2 = 0; assign o3 = 0;
-    assign n1 = 0; assign n2 = 0; assign n3 = 0;
-    assign a1 = 0; assign a2 = 0; assign a3 = 0;
-    assign d1 = 0; assign d2 = 0; assign d3 = 0;
+    // assign o1 = o0;
+    // assign n1 = n0;
+    // assign a1 = 3;//a0;
+    // assign d1 = 0;
 
-    assign o0 = 4;
-    assign a0 = 0;
-    assign d0 = 0;
 
     always @(*) begin
-        casez ({t[13:9],div3,t[6:3]})
-            11'h?0?: n0 = C;
-            11'h?1?: n0 = D;
-            11'h?2?: n0 = E;
-
-            11'h?4?: n0 = F;
-            11'h?5?: n0 = G;
-            11'h?6?: n0 = A;
-
-            default: n0 = B;
+        n0 = C;
+        a0 = t[5:3]; // Decay.
+        d0 = 0;
+        casez (t[13:2])
+            12'h?0?: begin o0= 2; end
+            12'h?1?: begin o0= 2; end
+            12'h?2?: begin o0= 3; end
+            12'h?3?: begin o0= 3; a0=7; end
+            12'h?4?: begin o0= 3; end
+            12'h?5?: begin o0= 2; end
+            12'h?6?: begin o0= 2; end
+            12'h?7?: begin o0= 2; end
+            12'h?8?: begin o0= 2; a0=7; end
+            12'h?9?: begin o0= 2; end
+            12'h?A?: begin o0= 3; end
+            12'h?B?: begin o0= 3; a0=7; end
+            12'h?C?: begin o0= 3; end
+            12'h?D?: begin o0= 2; end
+            12'h?E?: begin o0= 2; end
+            12'h?F?: begin o0= 2; end
+            default: begin o0='X; n0=_; a0='X; end
         endcase
+        o1 = o0;
+        n1 = n0;
+        a1 = {1'b0,t[5:4]}+3'd2; //3;//a0;
+        d1 = 0;
+    end
+
+    always @(*) begin
+        n2 = _;
+        a2 = 0;
+        d2 = 0;
+        o2 = 4;
+
+        a2 = (t[3:2] == 0 || t[3:2] == 3) ? 2 : 1;
+
+        casez (t[13:2])
+            12'b0010_????_?0??: begin n2=E; end
+            12'b0010_????_?1??: begin n2=G; end
+
+            12'b0011_????_?0??: begin n2=F; end
+            12'b0011_????_?1??: begin n2=A; end
+
+            12'b0100_????_?0??: begin n2=As; end
+            12'b0100_????_?1??: begin n2=D; end
+
+            12'b0101_????_?0??: begin n2=C; end
+            12'b0101_????_?1??: begin n2=E; end
+
+            // Faster scales:
+
+            12'b0110_????_?00?: begin n2=C; end
+            12'b0110_????_?01?: begin n2=E; end
+            12'b0110_????_?10?: begin n2=G; end
+            12'b0110_????_?11?: begin n2=C; o2=5; end
+
+            12'b0111_????_?00?: begin n2=C; end
+            12'b0111_????_?01?: begin n2=F; end
+            12'b0111_????_?10?: begin n2=A; end
+            12'b0111_????_?11?: begin n2=C; o2=5; end
+
+            12'b1000_????_?00?: begin n2=D; end
+            12'b1000_????_?01?: begin n2=F; end
+            12'b1000_????_?10?: begin n2=As; end
+            12'b1000_????_?11?: begin n2=D; o2=5; end
+
+            12'b1001_????_?00?: begin n2=C; end
+            12'b1001_????_?01?: begin n2=E; end
+            12'b1001_????_?10?: begin n2=G; end
+            12'b1001_????_?11?: begin n2=C; o2=5; end
+
+            12'b1100_????_????: begin n2=C; o2=3; a2=2; end
+
+
+            // 12'b0010_????_????: begin n2=Ds; end
+            // default: begin n2='X; end
+        endcase
+    end
+
+
+    // always @(*) begin
+    //     n3 = _;
+    //     a3 = 0;
+    //     d3 = 0;
+    //     o3 = 4;
+    //     casez (t[13:2])
+    //         12'b1001_????_????: begin n3=C; o3=6; a3=(t[9:7]>=3) ? {1'b1,~t[9:8]} : 3'b100; end
+    //         12'b1010_????_????: begin n3=C; o3=6; a3=3'b100; end
+    //     endcase
+    //     // casez (t[13:2])
+    //     //     12'b0010_????_????: begin n3=G; end
+    //     //     // 12'b0010_????_????: begin n2=Ds; end
+    //     //     // default: begin n2='X; end
+    //     // endcase
+    // end
+
+    always @(*) begin
+        n3 = _;
+        a3 = 0;
+        d3 = 0;
+        o3 = 3;
+        casez (t[13:2])
+            12'b1001_???0_????: begin n3=C;  a3=~t[9:7]; end
+            12'b1010_0_???_????: begin n3=C;  o3=3; end
+            12'b1010_1_???_????: begin n3=As; o3=2; end
+            12'b1011_0_???_????: begin n3=Ds; o3=2; end
+            12'b1011_1_???_????: begin n3=F;  o3=2; end
+
+            12'b1100_????_????: begin n3=C;  o3=2; end
+            12'b1101_????_????: begin n3=C;  o3=2; d3=1; end
+        endcase
+        // casez (t[13:2])
+        //     12'b0010_????_????: begin n3=G; end
+        //     // 12'b0010_????_????: begin n2=Ds; end
+        //     // default: begin n2='X; end
+        // endcase
     end
 
 
