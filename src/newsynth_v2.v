@@ -178,10 +178,10 @@ module newsynth_v2(
     wire g3 = 0; //a3 >= 4;
 
     wire [9:0] sample_wide =
-        {2'b00, {8{~g0}} & square8(prod0[16:8])>>a0} + //>>a0} +
-        {2'b00, {8{~g1}} & saw8(prod1[16:8])>>a1} + //>>a1} +
-        {2'b00, {8{~g2}} & tri8(prod2[16:8])>>a2} + //>>a2} +
-        {2'b00, {8{~g3}} & tri8(prod3[16:8])>>a3}; //>>a3};
+        {2'b00, {8{~g0}} & tri8(prod0[16:8])>>a0} + //>>a0} +
+        {2'b00, {8{~g1}} & tri8(prod1[16:8])>>a1} + //>>a1} +
+        {2'b00, {8{~g2}} & saw8(prod2[16:8])>>a2}/* + //>>a2} +
+        {2'b00, {8{~g3}} & saw8(prod3[16:8])>>a3}*/; //>>a3};
     assign sample = sample_wide[9:2];
 
     wire [2:0] o0;
@@ -255,14 +255,745 @@ module sequencer(
     localparam B   = 11;
     localparam _   = 15;
 
-
-    reg [1:0] div3;
+    reg [2:0] upper_frame;
+    reg last_t7;
     always @(posedge clk) begin
-        if (reset)
-            div3 <= 0;
-        else if (t[8])
-            div3 <= (div3==2) ? 0 : div3+1;
+        last_t7 <= reset ? 0 : t[7];
     end
+
+    reg [1:0] act;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            upper_frame <= 0;
+            act <= 0;
+        end else if (last_t7 && ~t[7])
+            if (upper_frame == 5) begin
+                upper_frame <= 0;
+                act <= act + 1;
+            end else
+                upper_frame <= upper_frame + 1;
+    end
+
+    wire [11:0] timeslice = {1'b0,upper_frame,t[7:0]};
+
+    always @(*) begin
+        n0 = _; n1 = _; n2 = _; n3 = _;
+        o0 = 0; o1 = 0; o2 = 0; o3 = 0;
+        a0 = 0; a1 = 0; a2 = 0; a3 = 0;
+        d0 = 0; d1 = 0; d2 = 0; d3 = 0;
+        casez (timeslice)
+        // Track 0 - Beat melody.
+            12'h00?: begin n0 = B ;    o0 = 3; end    // START
+            12'h01?: begin n0 = B ;    o0 = 3; end
+            12'h02?: begin n0 = B ;    o0 = 3; end
+            12'h03?: begin n0 = B ;    o0 = 3; end
+            12'h04?: begin n0 = B ;    o0 = 3; end    // START
+            12'h05?: begin n0 = B ;    o0 = 3; end
+            12'h06?: begin n0 = _ ;    o0 = 0; end
+            12'h07?: begin n0 = _ ;    o0 = 0; end
+            12'h08?: begin n0 = _ ;    o0 = 0; end
+            12'h09?: begin n0 = _ ;    o0 = 0; end
+            12'h0A?: begin n0 = B ;    o0 = 3; end    // START
+            12'h0B?: begin n0 = B ;    o0 = 3; end
+            12'h0C?: begin n0 = B ;    o0 = 3; end
+            12'h0D?: begin n0 = B ;    o0 = 3; end
+            12'h0E?: begin n0 = _ ;    o0 = 0; end
+            12'h0F?: begin n0 = _ ;    o0 = 0; end
+            12'h10?: begin n0 = _ ;    o0 = 0; end
+            12'h11?: begin n0 = _ ;    o0 = 0; end
+            12'h12?: begin n0 = Cs;    o0 = 4; end    // START
+            12'h13?: begin n0 = Cs;    o0 = 4; end
+            12'h14?: begin n0 = _ ;    o0 = 0; end
+            12'h15?: begin n0 = _ ;    o0 = 0; end
+            12'h16?: begin n0 = _ ;    o0 = 0; end
+            12'h17?: begin n0 = _ ;    o0 = 0; end
+            12'h18?: begin n0 = D ;    o0 = 4; end    // START
+            12'h19?: begin n0 = D ;    o0 = 4; end
+            12'h1A?: begin n0 = D ;    o0 = 4; end
+            12'h1B?: begin n0 = D ;    o0 = 4; end
+            12'h1C?: begin n0 = D ;    o0 = 4; end    // START
+            12'h1D?: begin n0 = D ;    o0 = 4; end
+            12'h1E?: begin n0 = _ ;    o0 = 0; end
+            12'h1F?: begin n0 = _ ;    o0 = 0; end
+            12'h20?: begin n0 = _ ;    o0 = 0; end
+            12'h21?: begin n0 = _ ;    o0 = 0; end
+            12'h22?: begin n0 = D ;    o0 = 4; end    // START
+            12'h23?: begin n0 = D ;    o0 = 4; end
+            12'h24?: begin n0 = D ;    o0 = 4; end
+            12'h25?: begin n0 = D ;    o0 = 4; end
+            12'h26?: begin n0 = _ ;    o0 = 0; end
+            12'h27?: begin n0 = _ ;    o0 = 0; end
+            12'h28?: begin n0 = _ ;    o0 = 0; end
+            12'h29?: begin n0 = _ ;    o0 = 0; end
+            12'h2A?: begin n0 = E ;    o0 = 4; end    // START
+            12'h2B?: begin n0 = E ;    o0 = 4; end
+            12'h2C?: begin n0 = _ ;    o0 = 0; end
+            12'h2D?: begin n0 = _ ;    o0 = 0; end
+            12'h2E?: begin n0 = _ ;    o0 = 0; end
+            12'h2F?: begin n0 = _ ;    o0 = 0; end
+            12'h30?: begin n0 = Cs;    o0 = 4; end    // START
+            12'h31?: begin n0 = Cs;    o0 = 4; end
+            12'h32?: begin n0 = Cs;    o0 = 4; end
+            12'h33?: begin n0 = Cs;    o0 = 4; end
+            12'h34?: begin n0 = Cs;    o0 = 4; end    // START
+            12'h35?: begin n0 = Cs;    o0 = 4; end
+            12'h36?: begin n0 = _ ;    o0 = 0; end
+            12'h37?: begin n0 = _ ;    o0 = 0; end
+            12'h38?: begin n0 = _ ;    o0 = 0; end
+            12'h39?: begin n0 = _ ;    o0 = 0; end
+            12'h3A?: begin n0 = Cs;    o0 = 4; end    // START
+            12'h3B?: begin n0 = Cs;    o0 = 4; end
+            12'h3C?: begin n0 = Cs;    o0 = 4; end
+            12'h3D?: begin n0 = Cs;    o0 = 4; end
+            12'h3E?: begin n0 = _ ;    o0 = 0; end
+            12'h3F?: begin n0 = _ ;    o0 = 0; end
+            12'h40?: begin n0 = _ ;    o0 = 0; end
+            12'h41?: begin n0 = _ ;    o0 = 0; end
+            12'h42?: begin n0 = A ;    o0 = 3; end    // START
+            12'h43?: begin n0 = A ;    o0 = 3; end
+            12'h44?: begin n0 = _ ;    o0 = 0; end
+            12'h45?: begin n0 = _ ;    o0 = 0; end
+            12'h46?: begin n0 = _ ;    o0 = 0; end
+            12'h47?: begin n0 = _ ;    o0 = 0; end
+            12'h48?: begin n0 = G ;    o0 = 3; end    // START
+            12'h49?: begin n0 = G ;    o0 = 3; end
+            12'h4A?: begin n0 = G ;    o0 = 3; end
+            12'h4B?: begin n0 = G ;    o0 = 3; end
+            12'h4C?: begin n0 = G ;    o0 = 3; end    // START
+            12'h4D?: begin n0 = G ;    o0 = 3; end
+            12'h4E?: begin n0 = _ ;    o0 = 0; end
+            12'h4F?: begin n0 = _ ;    o0 = 0; end
+            12'h50?: begin n0 = _ ;    o0 = 0; end
+            12'h51?: begin n0 = _ ;    o0 = 0; end
+            12'h52?: begin n0 = Fs;    o0 = 3; end    // START
+            12'h53?: begin n0 = Fs;    o0 = 3; end
+            12'h54?: begin n0 = Cs;    o0 = 4; end    // START
+            12'h55?: begin n0 = Cs;    o0 = 4; end
+            12'h56?: begin n0 = _ ;    o0 = 0; end
+            12'h57?: begin n0 = _ ;    o0 = 0; end
+            12'h58?: begin n0 = _ ;    o0 = 0; end
+            12'h59?: begin n0 = _ ;    o0 = 0; end
+            12'h5A?: begin n0 = D ;    o0 = 4; end    // START
+            12'h5B?: begin n0 = D ;    o0 = 4; end
+            12'h5C?: begin n0 = _ ;    o0 = 0; end
+            12'h5D?: begin n0 = _ ;    o0 = 0; end
+            12'h5E?: begin n0 = _ ;    o0 = 0; end
+            12'h5F?: begin n0 = _ ;    o0 = 0; end
+            12'h60?: begin n0 = _ ;    o0 = 0; end
+        endcase
+
+        casez (timeslice)
+        // Track 1 - Scales.
+            12'h00?: begin n1 = B ;    o1 = 2; end    // START
+            12'h01?: begin n1 = B ;    o1 = 2; end
+            12'h02?: begin n1 = D ;    o1 = 3; end    // START
+            12'h03?: begin n1 = D ;    o1 = 3; end
+            12'h04?: begin n1 = Fs;    o1 = 3; end    // START
+            12'h05?: begin n1 = Fs;    o1 = 3; end
+            12'h06?: begin n1 = D ;    o1 = 3; end    // START
+            12'h07?: begin n1 = D ;    o1 = 3; end
+            12'h08?: begin n1 = B ;    o1 = 2; end    // START
+            12'h09?: begin n1 = B ;    o1 = 2; end
+            12'h0A?: begin n1 = D ;    o1 = 3; end    // START
+            12'h0B?: begin n1 = D ;    o1 = 3; end
+            12'h0C?: begin n1 = Fs;    o1 = 3; end    // START
+            12'h0D?: begin n1 = Fs;    o1 = 3; end
+            12'h0E?: begin n1 = D ;    o1 = 3; end    // START
+            12'h0F?: begin n1 = D ;    o1 = 3; end
+            12'h10?: begin n1 = B ;    o1 = 2; end    // START
+            12'h11?: begin n1 = B ;    o1 = 2; end
+            12'h12?: begin n1 = D ;    o1 = 3; end    // START
+            12'h13?: begin n1 = D ;    o1 = 3; end
+            12'h14?: begin n1 = Fs;    o1 = 3; end    // START
+            12'h15?: begin n1 = Fs;    o1 = 3; end
+            12'h16?: begin n1 = D ;    o1 = 3; end    // START
+            12'h17?: begin n1 = D ;    o1 = 3; end
+            12'h18?: begin n1 = A ;    o1 = 2; end    // START
+            12'h19?: begin n1 = A ;    o1 = 2; end
+            12'h1A?: begin n1 = D ;    o1 = 3; end    // START
+            12'h1B?: begin n1 = D ;    o1 = 3; end
+            12'h1C?: begin n1 = Fs;    o1 = 3; end    // START
+            12'h1D?: begin n1 = Fs;    o1 = 3; end
+            12'h1E?: begin n1 = D ;    o1 = 3; end    // START
+            12'h1F?: begin n1 = D ;    o1 = 3; end
+            12'h20?: begin n1 = A ;    o1 = 2; end    // START
+            12'h21?: begin n1 = A ;    o1 = 2; end
+            12'h22?: begin n1 = D ;    o1 = 3; end    // START
+            12'h23?: begin n1 = D ;    o1 = 3; end
+            12'h24?: begin n1 = Fs;    o1 = 3; end    // START
+            12'h25?: begin n1 = Fs;    o1 = 3; end
+            12'h26?: begin n1 = D ;    o1 = 3; end    // START
+            12'h27?: begin n1 = D ;    o1 = 3; end
+            12'h28?: begin n1 = A ;    o1 = 2; end    // START
+            12'h29?: begin n1 = A ;    o1 = 2; end
+            12'h2A?: begin n1 = D ;    o1 = 3; end    // START
+            12'h2B?: begin n1 = D ;    o1 = 3; end
+            12'h2C?: begin n1 = Fs;    o1 = 3; end    // START
+            12'h2D?: begin n1 = Fs;    o1 = 3; end
+            12'h2E?: begin n1 = D ;    o1 = 3; end    // START
+            12'h2F?: begin n1 = D ;    o1 = 3; end
+            12'h30?: begin n1 = Cs;    o1 = 3; end    // START
+            12'h31?: begin n1 = Cs;    o1 = 3; end
+            12'h32?: begin n1 = E ;    o1 = 3; end    // START
+            12'h33?: begin n1 = E ;    o1 = 3; end
+            12'h34?: begin n1 = A ;    o1 = 3; end    // START
+            12'h35?: begin n1 = A ;    o1 = 3; end
+            12'h36?: begin n1 = E ;    o1 = 3; end    // START
+            12'h37?: begin n1 = E ;    o1 = 3; end
+            12'h38?: begin n1 = Cs;    o1 = 3; end    // START
+            12'h39?: begin n1 = Cs;    o1 = 3; end
+            12'h3A?: begin n1 = A ;    o1 = 2; end    // START
+            12'h3B?: begin n1 = A ;    o1 = 2; end
+            12'h3C?: begin n1 = Cs;    o1 = 3; end    // START
+            12'h3D?: begin n1 = Cs;    o1 = 3; end
+            12'h3E?: begin n1 = A ;    o1 = 2; end    // START
+            12'h3F?: begin n1 = A ;    o1 = 2; end
+            12'h40?: begin n1 = E ;    o1 = 2; end    // START
+            12'h41?: begin n1 = E ;    o1 = 2; end
+            12'h42?: begin n1 = A ;    o1 = 2; end    // START
+            12'h43?: begin n1 = A ;    o1 = 2; end
+            12'h44?: begin n1 = Cs;    o1 = 3; end    // START
+            12'h45?: begin n1 = Cs;    o1 = 3; end
+            12'h46?: begin n1 = E ;    o1 = 3; end    // START
+            12'h47?: begin n1 = E ;    o1 = 3; end
+            12'h48?: begin n1 = Cs;    o1 = 3; end    // START
+            12'h49?: begin n1 = Cs;    o1 = 3; end
+            12'h4A?: begin n1 = D ;    o1 = 3; end    // START
+            12'h4B?: begin n1 = D ;    o1 = 3; end
+            12'h4C?: begin n1 = E ;    o1 = 3; end    // START
+            12'h4D?: begin n1 = E ;    o1 = 3; end
+            12'h4E?: begin n1 = Fs;    o1 = 3; end    // START
+            12'h4F?: begin n1 = Fs;    o1 = 3; end
+            12'h50?: begin n1 = E ;    o1 = 3; end    // START
+            12'h51?: begin n1 = E ;    o1 = 3; end
+            12'h52?: begin n1 = D ;    o1 = 3; end    // START
+            12'h53?: begin n1 = D ;    o1 = 3; end
+            12'h54?: begin n1 = Cs;    o1 = 3; end    // START
+            12'h55?: begin n1 = Cs;    o1 = 3; end
+            12'h56?: begin n1 = B ;    o1 = 2; end    // START
+            12'h57?: begin n1 = B ;    o1 = 2; end
+            12'h58?: begin n1 = As;    o1 = 2; end    // START
+            12'h59?: begin n1 = As;    o1 = 2; end
+            12'h5A?: begin n1 = D ;    o1 = 3; end    // START
+            12'h5B?: begin n1 = D ;    o1 = 3; end
+            12'h5C?: begin n1 = Cs;    o1 = 3; end    // START
+            12'h5D?: begin n1 = Cs;    o1 = 3; end
+            12'h5E?: begin n1 = D ;    o1 = 3; end    // START
+            12'h5F?: begin n1 = D ;    o1 = 3; end
+        endcase
+
+    // // Track 2 -- DRUMS
+    //     12'h00?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h01?: begin n2 = _ ;    o2 = 0; end
+    //     12'h02?: begin n2 = _ ;    o2 = 0; end
+    //     12'h03?: begin n2 = _ ;    o2 = 0; end
+    //     12'h04?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h05?: begin n2 = _ ;    o2 = 0; end
+    //     12'h06?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h07?: begin n2 = _ ;    o2 = 0; end
+    //     12'h08?: begin n2 = _ ;    o2 = 0; end
+    //     12'h09?: begin n2 = _ ;    o2 = 0; end
+    //     12'h0A?: begin n2 = D ;    o2 = 3; end    // START
+    //     12'h0B?: begin n2 = _ ;    o2 = 0; end
+    //     12'h0C?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h0D?: begin n2 = _ ;    o2 = 0; end
+    //     12'h0E?: begin n2 = _ ;    o2 = 0; end
+    //     12'h0F?: begin n2 = _ ;    o2 = 0; end
+    //     12'h10?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h11?: begin n2 = _ ;    o2 = 0; end
+    //     12'h12?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h13?: begin n2 = _ ;    o2 = 0; end
+    //     12'h14?: begin n2 = _ ;    o2 = 0; end
+    //     12'h15?: begin n2 = _ ;    o2 = 0; end
+    //     12'h16?: begin n2 = _ ;    o2 = 0; end
+    //     12'h17?: begin n2 = _ ;    o2 = 0; end
+    //     12'h18?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h19?: begin n2 = _ ;    o2 = 0; end
+    //     12'h1A?: begin n2 = _ ;    o2 = 0; end
+    //     12'h1B?: begin n2 = _ ;    o2 = 0; end
+    //     12'h1C?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h1D?: begin n2 = _ ;    o2 = 0; end
+    //     12'h1E?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h1F?: begin n2 = _ ;    o2 = 0; end
+    //     12'h20?: begin n2 = _ ;    o2 = 0; end
+    //     12'h21?: begin n2 = _ ;    o2 = 0; end
+    //     12'h22?: begin n2 = D ;    o2 = 3; end    // START
+    //     12'h23?: begin n2 = _ ;    o2 = 0; end
+    //     12'h24?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h25?: begin n2 = _ ;    o2 = 0; end
+    //     12'h26?: begin n2 = _ ;    o2 = 0; end
+    //     12'h27?: begin n2 = _ ;    o2 = 0; end
+    //     12'h28?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h29?: begin n2 = _ ;    o2 = 0; end
+    //     12'h2A?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h2B?: begin n2 = _ ;    o2 = 0; end
+    //     12'h2C?: begin n2 = _ ;    o2 = 0; end
+    //     12'h2D?: begin n2 = _ ;    o2 = 0; end
+    //     12'h2E?: begin n2 = _ ;    o2 = 0; end
+    //     12'h2F?: begin n2 = _ ;    o2 = 0; end
+    //     12'h30?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h31?: begin n2 = _ ;    o2 = 0; end
+    //     12'h32?: begin n2 = _ ;    o2 = 0; end
+    //     12'h33?: begin n2 = _ ;    o2 = 0; end
+    //     12'h34?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h35?: begin n2 = _ ;    o2 = 0; end
+    //     12'h36?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h37?: begin n2 = _ ;    o2 = 0; end
+    //     12'h38?: begin n2 = _ ;    o2 = 0; end
+    //     12'h39?: begin n2 = _ ;    o2 = 0; end
+    //     12'h3A?: begin n2 = D ;    o2 = 3; end    // START
+    //     12'h3B?: begin n2 = _ ;    o2 = 0; end
+    //     12'h3C?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h3D?: begin n2 = _ ;    o2 = 0; end
+    //     12'h3E?: begin n2 = _ ;    o2 = 0; end
+    //     12'h3F?: begin n2 = _ ;    o2 = 0; end
+    //     12'h40?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h41?: begin n2 = _ ;    o2 = 0; end
+    //     12'h42?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h43?: begin n2 = _ ;    o2 = 0; end
+    //     12'h44?: begin n2 = _ ;    o2 = 0; end
+    //     12'h45?: begin n2 = _ ;    o2 = 0; end
+    //     12'h46?: begin n2 = _ ;    o2 = 0; end
+    //     12'h47?: begin n2 = _ ;    o2 = 0; end
+    //     12'h48?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h49?: begin n2 = _ ;    o2 = 0; end
+    //     12'h4A?: begin n2 = _ ;    o2 = 0; end
+    //     12'h4B?: begin n2 = _ ;    o2 = 0; end
+    //     12'h4C?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h4D?: begin n2 = _ ;    o2 = 0; end
+    //     12'h4E?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h4F?: begin n2 = _ ;    o2 = 0; end
+    //     12'h50?: begin n2 = _ ;    o2 = 0; end
+    //     12'h51?: begin n2 = _ ;    o2 = 0; end
+    //     12'h52?: begin n2 = D ;    o2 = 3; end    // START
+    //     12'h53?: begin n2 = _ ;    o2 = 0; end
+    //     12'h54?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h55?: begin n2 = _ ;    o2 = 0; end
+    //     12'h56?: begin n2 = D ;    o2 = 3; end    // START
+    //     12'h57?: begin n2 = _ ;    o2 = 0; end
+    //     12'h58?: begin n2 = B ;    o2 = 2; end    // START
+    //     12'h59?: begin n2 = _ ;    o2 = 0; end
+    //     12'h5A?: begin n2 = E ;    o2 = 4; end    // START
+    //     12'h5B?: begin n2 = _ ;    o2 = 0; end
+    //     12'h5C?: begin n2 = D ;    o2 = 3; end    // START
+    //     12'h5D?: begin n2 = _ ;    o2 = 0; end
+    //     12'h5E?: begin n2 = D ;    o2 = 3; end    // START
+    //     12'h5F?: begin n2 = _ ;    o2 = 0; end
+    //     12'h60?: begin n2 = _ ;    o2 = 0; end
+
+        // casez (timeslice)
+        // // Track 2 -- Slow harmony.
+        //     12'h00?: begin n2 = B ;    o2 = 4; end    // START
+        //     12'h01?: begin n2 = B ;    o2 = 4; end
+        //     12'h02?: begin n2 = B ;    o2 = 4; end
+        //     12'h03?: begin n2 = B ;    o2 = 4; end
+        //     12'h04?: begin n2 = B ;    o2 = 4; end
+        //     12'h05?: begin n2 = B ;    o2 = 4; end
+        //     12'h06?: begin n2 = B ;    o2 = 4; end
+        //     12'h07?: begin n2 = B ;    o2 = 4; end
+        //     12'h08?: begin n2 = B ;    o2 = 4; end
+        //     12'h09?: begin n2 = B ;    o2 = 4; end
+        //     12'h0A?: begin n2 = B ;    o2 = 4; end
+        //     12'h0B?: begin n2 = B ;    o2 = 4; end
+        //     12'h0C?: begin n2 = B ;    o2 = 4; end
+        //     12'h0D?: begin n2 = B ;    o2 = 4; end
+        //     12'h0E?: begin n2 = B ;    o2 = 4; end
+        //     12'h0F?: begin n2 = B ;    o2 = 4; end
+        //     12'h10?: begin n2 = B ;    o2 = 4; end
+        //     12'h11?: begin n2 = B ;    o2 = 4; end
+        //     12'h12?: begin n2 = Cs;    o2 = 5; end    // START
+        //     12'h13?: begin n2 = Cs;    o2 = 5; end
+        //     12'h14?: begin n2 = Cs;    o2 = 5; end
+        //     12'h15?: begin n2 = Cs;    o2 = 5; end
+        //     12'h16?: begin n2 = Cs;    o2 = 5; end
+        //     12'h17?: begin n2 = Cs;    o2 = 5; end
+        //     12'h18?: begin n2 = D ;    o2 = 5; end    // START
+        //     12'h19?: begin n2 = D ;    o2 = 5; end
+        //     12'h1A?: begin n2 = D ;    o2 = 5; end
+        //     12'h1B?: begin n2 = D ;    o2 = 5; end
+        //     12'h1C?: begin n2 = D ;    o2 = 5; end
+        //     12'h1D?: begin n2 = D ;    o2 = 5; end
+        //     12'h1E?: begin n2 = D ;    o2 = 5; end
+        //     12'h1F?: begin n2 = D ;    o2 = 5; end
+        //     12'h20?: begin n2 = D ;    o2 = 5; end
+        //     12'h21?: begin n2 = D ;    o2 = 5; end
+        //     12'h22?: begin n2 = D ;    o2 = 5; end
+        //     12'h23?: begin n2 = D ;    o2 = 5; end
+        //     12'h24?: begin n2 = D ;    o2 = 5; end
+        //     12'h25?: begin n2 = D ;    o2 = 5; end
+        //     12'h26?: begin n2 = D ;    o2 = 5; end
+        //     12'h27?: begin n2 = D ;    o2 = 5; end
+        //     12'h28?: begin n2 = D ;    o2 = 5; end
+        //     12'h29?: begin n2 = D ;    o2 = 5; end
+        //     12'h2A?: begin n2 = D ;    o2 = 5; end    // START
+        //     12'h2B?: begin n2 = D ;    o2 = 5; end
+        //     12'h2C?: begin n2 = D ;    o2 = 5; end
+        //     12'h2D?: begin n2 = D ;    o2 = 5; end
+        //     12'h2E?: begin n2 = D ;    o2 = 5; end
+        //     12'h2F?: begin n2 = D ;    o2 = 5; end
+        //     12'h30?: begin n2 = E ;    o2 = 5; end    // START
+        //     12'h31?: begin n2 = E ;    o2 = 5; end
+        //     12'h32?: begin n2 = E ;    o2 = 5; end
+        //     12'h33?: begin n2 = E ;    o2 = 5; end
+        //     12'h34?: begin n2 = E ;    o2 = 5; end
+        //     12'h35?: begin n2 = E ;    o2 = 5; end
+        //     12'h36?: begin n2 = E ;    o2 = 5; end
+        //     12'h37?: begin n2 = E ;    o2 = 5; end
+        //     12'h38?: begin n2 = E ;    o2 = 5; end
+        //     12'h39?: begin n2 = E ;    o2 = 5; end
+        //     12'h3A?: begin n2 = E ;    o2 = 5; end
+        //     12'h3B?: begin n2 = E ;    o2 = 5; end
+        //     12'h3C?: begin n2 = E ;    o2 = 5; end
+        //     12'h3D?: begin n2 = E ;    o2 = 5; end
+        //     12'h3E?: begin n2 = E ;    o2 = 5; end
+        //     12'h3F?: begin n2 = E ;    o2 = 5; end
+        //     12'h40?: begin n2 = E ;    o2 = 5; end
+        //     12'h41?: begin n2 = E ;    o2 = 5; end
+        //     12'h42?: begin n2 = D ;    o2 = 5; end    // START
+        //     12'h43?: begin n2 = D ;    o2 = 5; end
+        //     12'h44?: begin n2 = D ;    o2 = 5; end
+        //     12'h45?: begin n2 = D ;    o2 = 5; end
+        //     12'h46?: begin n2 = D ;    o2 = 5; end
+        //     12'h47?: begin n2 = D ;    o2 = 5; end
+        //     12'h48?: begin n2 = Cs;    o2 = 5; end    // START
+        //     12'h49?: begin n2 = Cs;    o2 = 5; end
+        //     12'h4A?: begin n2 = Cs;    o2 = 5; end
+        //     12'h4B?: begin n2 = Cs;    o2 = 5; end
+        //     12'h4C?: begin n2 = Cs;    o2 = 5; end
+        //     12'h4D?: begin n2 = Cs;    o2 = 5; end
+        //     12'h4E?: begin n2 = Cs;    o2 = 5; end
+        //     12'h4F?: begin n2 = Cs;    o2 = 5; end
+        //     12'h50?: begin n2 = Cs;    o2 = 5; end
+        //     12'h51?: begin n2 = Cs;    o2 = 5; end
+        //     12'h52?: begin n2 = Cs;    o2 = 5; end
+        //     12'h53?: begin n2 = Cs;    o2 = 5; end
+        //     12'h54?: begin n2 = Cs;    o2 = 5; end
+        //     12'h55?: begin n2 = Cs;    o2 = 5; end
+        //     12'h56?: begin n2 = Cs;    o2 = 5; end
+        //     12'h57?: begin n2 = Cs;    o2 = 5; end
+        //     12'h58?: begin n2 = Cs;    o2 = 5; end
+        //     12'h59?: begin n2 = Cs;    o2 = 5; end
+        //     12'h5A?: begin n2 = As;    o2 = 4; end    // START
+        //     12'h5B?: begin n2 = As;    o2 = 4; end
+        //     12'h5C?: begin n2 = As;    o2 = 4; end
+        //     12'h5D?: begin n2 = As;    o2 = 4; end
+        //     12'h5E?: begin n2 = As;    o2 = 4; end
+        //     12'h5F?: begin n2 = As;    o2 = 4; end
+        // endcase
+
+        // casez (timeslice)
+        // // Track 3 -- Medium harmony.
+        //     12'h00?: begin n3 = Fs;    o3 = 5; end    // START
+        //     12'h01?: begin n3 = Fs;    o3 = 5; end
+        //     12'h02?: begin n3 = Fs;    o3 = 5; end
+        //     12'h03?: begin n3 = Fs;    o3 = 5; end
+        //     12'h04?: begin n3 = Fs;    o3 = 5; end
+        //     12'h05?: begin n3 = Fs;    o3 = 5; end
+        //     12'h06?: begin n3 = E ;    o3 = 5; end    // START
+        //     12'h07?: begin n3 = E ;    o3 = 5; end
+        //     12'h08?: begin n3 = E ;    o3 = 5; end
+        //     12'h09?: begin n3 = E ;    o3 = 5; end
+        //     12'h0A?: begin n3 = E ;    o3 = 5; end
+        //     12'h0B?: begin n3 = E ;    o3 = 5; end
+        //     12'h0C?: begin n3 = D ;    o3 = 5; end    // START
+        //     12'h0D?: begin n3 = D ;    o3 = 5; end
+        //     12'h0E?: begin n3 = D ;    o3 = 5; end
+        //     12'h0F?: begin n3 = D ;    o3 = 5; end
+        //     12'h10?: begin n3 = D ;    o3 = 5; end
+        //     12'h11?: begin n3 = D ;    o3 = 5; end
+        //     12'h12?: begin n3 = Fs;    o3 = 5; end    // START
+        //     12'h13?: begin n3 = Fs;    o3 = 5; end
+        //     12'h14?: begin n3 = Fs;    o3 = 5; end
+        //     12'h15?: begin n3 = Fs;    o3 = 5; end
+        //     12'h16?: begin n3 = Fs;    o3 = 5; end
+        //     12'h17?: begin n3 = Fs;    o3 = 5; end
+        //     12'h18?: begin n3 = E ;    o3 = 5; end    // START
+        //     12'h19?: begin n3 = E ;    o3 = 5; end
+        //     12'h1A?: begin n3 = E ;    o3 = 5; end
+        //     12'h1B?: begin n3 = E ;    o3 = 5; end
+        //     12'h1C?: begin n3 = E ;    o3 = 5; end
+        //     12'h1D?: begin n3 = E ;    o3 = 5; end
+        //     12'h1E?: begin n3 = _ ;    o3 = 0; end
+        //     12'h1F?: begin n3 = _ ;    o3 = 0; end
+        //     12'h20?: begin n3 = _ ;    o3 = 0; end
+        //     12'h21?: begin n3 = _ ;    o3 = 0; end
+        //     12'h22?: begin n3 = _ ;    o3 = 0; end
+        //     12'h23?: begin n3 = _ ;    o3 = 0; end
+        //     12'h24?: begin n3 = Fs;    o3 = 5; end    // START
+        //     12'h25?: begin n3 = Fs;    o3 = 5; end
+        //     12'h26?: begin n3 = Fs;    o3 = 5; end
+        //     12'h27?: begin n3 = Fs;    o3 = 5; end
+        //     12'h28?: begin n3 = Fs;    o3 = 5; end
+        //     12'h29?: begin n3 = Fs;    o3 = 5; end
+        //     12'h2A?: begin n3 = _ ;    o3 = 0; end
+        //     12'h2B?: begin n3 = _ ;    o3 = 0; end
+        //     12'h2C?: begin n3 = _ ;    o3 = 0; end
+        //     12'h2D?: begin n3 = _ ;    o3 = 0; end
+        //     12'h2E?: begin n3 = _ ;    o3 = 0; end
+        //     12'h2F?: begin n3 = _ ;    o3 = 0; end
+        //     12'h30?: begin n3 = G ;    o3 = 5; end    // START
+        //     12'h31?: begin n3 = G ;    o3 = 5; end
+        //     12'h32?: begin n3 = G ;    o3 = 5; end
+        //     12'h33?: begin n3 = G ;    o3 = 5; end
+        //     12'h34?: begin n3 = G ;    o3 = 5; end
+        //     12'h35?: begin n3 = G ;    o3 = 5; end
+        //     12'h36?: begin n3 = A ;    o3 = 5; end    // START
+        //     12'h37?: begin n3 = A ;    o3 = 5; end
+        //     12'h38?: begin n3 = A ;    o3 = 5; end
+        //     12'h39?: begin n3 = A ;    o3 = 5; end
+        //     12'h3A?: begin n3 = A ;    o3 = 5; end
+        //     12'h3B?: begin n3 = A ;    o3 = 5; end
+        //     12'h3C?: begin n3 = G ;    o3 = 5; end    // START
+        //     12'h3D?: begin n3 = G ;    o3 = 5; end
+        //     12'h3E?: begin n3 = G ;    o3 = 5; end
+        //     12'h3F?: begin n3 = G ;    o3 = 5; end
+        //     12'h40?: begin n3 = G ;    o3 = 5; end
+        //     12'h41?: begin n3 = G ;    o3 = 5; end
+        //     12'h42?: begin n3 = Fs;    o3 = 5; end    // START
+        //     12'h43?: begin n3 = Fs;    o3 = 5; end
+        //     12'h44?: begin n3 = Fs;    o3 = 5; end
+        //     12'h45?: begin n3 = Fs;    o3 = 5; end
+        //     12'h46?: begin n3 = Fs;    o3 = 5; end
+        //     12'h47?: begin n3 = Fs;    o3 = 5; end
+        //     12'h48?: begin n3 = E ;    o3 = 5; end    // START
+        //     12'h49?: begin n3 = E ;    o3 = 5; end
+        //     12'h4A?: begin n3 = E ;    o3 = 5; end
+        //     12'h4B?: begin n3 = E ;    o3 = 5; end
+        //     12'h4C?: begin n3 = E ;    o3 = 5; end
+        //     12'h4D?: begin n3 = E ;    o3 = 5; end
+        //     12'h4E?: begin n3 = _ ;    o3 = 0; end
+        //     12'h4F?: begin n3 = _ ;    o3 = 0; end
+        //     12'h50?: begin n3 = _ ;    o3 = 0; end
+        //     12'h51?: begin n3 = _ ;    o3 = 0; end
+        //     12'h52?: begin n3 = _ ;    o3 = 0; end
+        //     12'h53?: begin n3 = _ ;    o3 = 0; end
+        //     12'h54?: begin n3 = Fs;    o3 = 5; end    // START
+        //     12'h55?: begin n3 = Fs;    o3 = 5; end
+        //     12'h56?: begin n3 = Fs;    o3 = 5; end
+        //     12'h57?: begin n3 = Fs;    o3 = 5; end
+        //     12'h58?: begin n3 = Fs;    o3 = 5; end
+        //     12'h59?: begin n3 = Fs;    o3 = 5; end
+        //     12'h5A?: begin n3 = As;    o3 = 5; end    // START
+        //     12'h5B?: begin n3 = As;    o3 = 5; end
+        //     12'h5C?: begin n3 = As;    o3 = 5; end
+        //     12'h5D?: begin n3 = As;    o3 = 5; end
+        //     12'h5E?: begin n3 = As;    o3 = 5; end
+        //     12'h5F?: begin n3 = As;    o3 = 5; end
+        // endcase
+
+        casez (timeslice)
+        // Track 0
+            12'h03E: begin a0 =  3; end
+            12'h05E: begin a0 =  3; end
+            12'h0DE: begin a0 =  3; end
+            12'h13E: begin a0 =  3; end
+            12'h1BE: begin a0 =  3; end
+            12'h1DE: begin a0 =  3; end
+            12'h25E: begin a0 =  3; end
+            12'h2BE: begin a0 =  3; end
+            12'h33E: begin a0 =  3; end
+            12'h35E: begin a0 =  3; end
+            12'h3DE: begin a0 =  3; end
+            12'h43E: begin a0 =  3; end
+            12'h4BE: begin a0 =  3; end
+            12'h4DE: begin a0 =  3; end
+            12'h53E: begin a0 =  3; end
+            12'h55E: begin a0 =  3; end
+            12'h5BE: begin a0 =  3; end
+
+            12'h03F: begin a0 =  7; end
+            12'h05F: begin a0 =  7; end
+            12'h0DF: begin a0 =  7; end
+            12'h13F: begin a0 =  7; end
+            12'h1BF: begin a0 =  7; end
+            12'h1DF: begin a0 =  7; end
+            12'h25F: begin a0 =  7; end
+            12'h2BF: begin a0 =  7; end
+            12'h33F: begin a0 =  7; end
+            12'h35F: begin a0 =  7; end
+            12'h3DF: begin a0 =  7; end
+            12'h43F: begin a0 =  7; end
+            12'h4BF: begin a0 =  7; end
+            12'h4DF: begin a0 =  7; end
+            12'h53F: begin a0 =  7; end
+            12'h55F: begin a0 =  7; end
+            12'h5BF: begin a0 =  7; end
+        endcase
+
+        casez (timeslice)
+        // Track 1
+            12'h01E: begin a1 =  3; end
+            12'h03E: begin a1 =  3; end
+            12'h05E: begin a1 =  3; end
+            12'h07E: begin a1 =  3; end
+            12'h09E: begin a1 =  3; end
+            12'h0BE: begin a1 =  3; end
+            12'h0DE: begin a1 =  3; end
+            12'h0FE: begin a1 =  3; end
+            12'h11E: begin a1 =  3; end
+            12'h13E: begin a1 =  3; end
+            12'h15E: begin a1 =  3; end
+            12'h17E: begin a1 =  3; end
+            12'h19E: begin a1 =  3; end
+            12'h1BE: begin a1 =  3; end
+            12'h1DE: begin a1 =  3; end
+            12'h1FE: begin a1 =  3; end
+            12'h21E: begin a1 =  3; end
+            12'h23E: begin a1 =  3; end
+            12'h25E: begin a1 =  3; end
+            12'h27E: begin a1 =  3; end
+            12'h29E: begin a1 =  3; end
+            12'h2BE: begin a1 =  3; end
+            12'h2DE: begin a1 =  3; end
+            12'h2FE: begin a1 =  3; end
+            12'h31E: begin a1 =  3; end
+            12'h33E: begin a1 =  3; end
+            12'h35E: begin a1 =  3; end
+            12'h37E: begin a1 =  3; end
+            12'h39E: begin a1 =  3; end
+            12'h3BE: begin a1 =  3; end
+            12'h3DE: begin a1 =  3; end
+            12'h3FE: begin a1 =  3; end
+            12'h41E: begin a1 =  3; end
+            12'h43E: begin a1 =  3; end
+            12'h45E: begin a1 =  3; end
+            12'h47E: begin a1 =  3; end
+            12'h49E: begin a1 =  3; end
+            12'h4BE: begin a1 =  3; end
+            12'h4DE: begin a1 =  3; end
+            12'h4FE: begin a1 =  3; end
+            12'h51E: begin a1 =  3; end
+            12'h53E: begin a1 =  3; end
+            12'h55E: begin a1 =  3; end
+            12'h57E: begin a1 =  3; end
+            12'h59E: begin a1 =  3; end
+            12'h5BE: begin a1 =  3; end
+            12'h5DE: begin a1 =  3; end
+            12'h5FE: begin a1 =  3; end
+
+            12'h01F: begin a1 =  7; end
+            12'h03F: begin a1 =  7; end
+            12'h05F: begin a1 =  7; end
+            12'h07F: begin a1 =  7; end
+            12'h09F: begin a1 =  7; end
+            12'h0BF: begin a1 =  7; end
+            12'h0DF: begin a1 =  7; end
+            12'h0FF: begin a1 =  7; end
+            12'h11F: begin a1 =  7; end
+            12'h13F: begin a1 =  7; end
+            12'h15F: begin a1 =  7; end
+            12'h17F: begin a1 =  7; end
+            12'h19F: begin a1 =  7; end
+            12'h1BF: begin a1 =  7; end
+            12'h1DF: begin a1 =  7; end
+            12'h1FF: begin a1 =  7; end
+            12'h21F: begin a1 =  7; end
+            12'h23F: begin a1 =  7; end
+            12'h25F: begin a1 =  7; end
+            12'h27F: begin a1 =  7; end
+            12'h29F: begin a1 =  7; end
+            12'h2BF: begin a1 =  7; end
+            12'h2DF: begin a1 =  7; end
+            12'h2FF: begin a1 =  7; end
+            12'h31F: begin a1 =  7; end
+            12'h33F: begin a1 =  7; end
+            12'h35F: begin a1 =  7; end
+            12'h37F: begin a1 =  7; end
+            12'h39F: begin a1 =  7; end
+            12'h3BF: begin a1 =  7; end
+            12'h3DF: begin a1 =  7; end
+            12'h3FF: begin a1 =  7; end
+            12'h41F: begin a1 =  7; end
+            12'h43F: begin a1 =  7; end
+            12'h45F: begin a1 =  7; end
+            12'h47F: begin a1 =  7; end
+            12'h49F: begin a1 =  7; end
+            12'h4BF: begin a1 =  7; end
+            12'h4DF: begin a1 =  7; end
+            12'h4FF: begin a1 =  7; end
+            12'h51F: begin a1 =  7; end
+            12'h53F: begin a1 =  7; end
+            12'h55F: begin a1 =  7; end
+            12'h57F: begin a1 =  7; end
+            12'h59F: begin a1 =  7; end
+            12'h5BF: begin a1 =  7; end
+            12'h5DF: begin a1 =  7; end
+            12'h5FF: begin a1 =  7; end
+        endcase
+
+    // // Track 2 -- DRUMS
+    //     12'h00F: begin a2 =  7; end
+    //     12'h04F: begin a2 =  7; end
+    //     12'h06F: begin a2 =  7; end
+    //     12'h0AF: begin a2 =  7; end
+    //     12'h0CF: begin a2 =  7; end
+    //     12'h10F: begin a2 =  7; end
+    //     12'h12F: begin a2 =  7; end
+    //     12'h18F: begin a2 =  7; end
+    //     12'h1CF: begin a2 =  7; end
+    //     12'h1EF: begin a2 =  7; end
+    //     12'h22F: begin a2 =  7; end
+    //     12'h24F: begin a2 =  7; end
+    //     12'h28F: begin a2 =  7; end
+    //     12'h2AF: begin a2 =  7; end
+    //     12'h30F: begin a2 =  7; end
+    //     12'h34F: begin a2 =  7; end
+    //     12'h36F: begin a2 =  7; end
+    //     12'h3AF: begin a2 =  7; end
+    //     12'h3CF: begin a2 =  7; end
+    //     12'h40F: begin a2 =  7; end
+    //     12'h42F: begin a2 =  7; end
+    //     12'h48F: begin a2 =  7; end
+    //     12'h4CF: begin a2 =  7; end
+    //     12'h4EF: begin a2 =  7; end
+    //     12'h52F: begin a2 =  7; end
+    //     12'h54F: begin a2 =  7; end
+    //     12'h54F: begin a2 =  7; end
+    //     12'h56F: begin a2 =  7; end
+    //     12'h58F: begin a2 =  7; end
+    //     12'h5AF: begin a2 =  7; end
+    //     12'h5CF: begin a2 =  7; end
+    //     12'h5EF: begin a2 =  7; end
+
+        // casez (t[12:1])
+        // // Track 2
+        //     12'h11F: begin a2 =  7; end
+        //     12'h17F: begin a2 =  7; end
+        //     12'h29F: begin a2 =  7; end
+        //     12'h2FF: begin a2 =  7; end
+        //     12'h41F: begin a2 =  7; end
+        //     12'h47F: begin a2 =  7; end
+        //     12'h59F: begin a2 =  7; end
+        //     12'h5FF: begin a2 =  7; end
+        // endcase
+
+        // casez (t[12:1])
+        // // Track 3
+        //     12'h05F: begin a3 =  7; end
+        //     12'h0BF: begin a3 =  7; end
+        //     12'h11F: begin a3 =  7; end
+        //     12'h17F: begin a3 =  7; end
+        //     12'h1DF: begin a3 =  7; end
+        //     12'h29F: begin a3 =  7; end
+        //     12'h35F: begin a3 =  7; end
+        //     12'h3BF: begin a3 =  7; end
+        //     12'h41F: begin a3 =  7; end
+        //     12'h47F: begin a3 =  7; end
+        //     12'h4DF: begin a3 =  7; end
+        //     12'h59F: begin a3 =  7; end
+        //     12'h5FF: begin a3 =  7; end
+        // endcase
+
+    end
+
+    // reg [1:0] div3;
+    // always @(posedge clk) begin
+    //     if (reset)
+    //         div3 <= 0;
+    //     else if (t[8])
+    //         div3 <= (div3==2) ? 0 : div3+1;
+    // end
 
     // assign o1 = o0;
     // assign n1 = n0;
@@ -270,95 +1001,118 @@ module sequencer(
     // assign d1 = 0;
 
 
-    always @(*) begin
-        n0 = C;
-        a0 = t[5:3]; // Decay.
-        d0 = 0;
-        casez (t[13:2])
-            12'h?0?: begin o0= 2; end
-            12'h?1?: begin o0= 2; end
-            12'h?2?: begin o0= 3; end
-            12'h?3?: begin o0= 3; a0=7; end
-            12'h?4?: begin o0= 3; end
-            12'h?5?: begin o0= 2; end
-            12'h?6?: begin o0= 2; end
-            12'h?7?: begin o0= 2; end
-            12'h?8?: begin o0= 2; a0=7; end
-            12'h?9?: begin o0= 2; end
-            12'h?A?: begin o0= 3; end
-            12'h?B?: begin o0= 3; a0=7; end
-            12'h?C?: begin o0= 3; end
-            12'h?D?: begin o0= 2; end
-            12'h?E?: begin o0= 2; end
-            12'h?F?: begin o0= 2; end
-            default: begin o0='X; n0=_; a0='X; end
-        endcase
-        o1 = o0;
-        n1 = n0;
-        a1 = {1'b0,t[5:4]}+3'd2; //3;//a0;
-        d1 = 0;
-    end
+    // always @(*) begin
+    //     n0 = C;
+    //     a0 = t[5:3]; // Decay.
+    //     d0 = 0;
+    //     casez (t[13:2])
+    //         12'h?0?: begin o0= 2; end
+    //         12'h?1?: begin o0= 2; end
+    //         12'h?2?: begin o0= 3; end
+    //         12'h?3?: begin o0= 3; a0=7; end
+    //         12'h?4?: begin o0= 3; end
+    //         12'h?5?: begin o0= 2; end
+    //         12'h?6?: begin o0= 2; end
+    //         12'h?7?: begin o0= 2; end
+    //         12'h?8?: begin o0= 2; a0=7; end
+    //         12'h?9?: begin o0= 2; end
+    //         12'h?A?: begin o0= 3; end
+    //         12'h?B?: begin o0= 3; a0=7; end
+    //         12'h?C?: begin o0= 3; end
+    //         12'h?D?: begin o0= 2; end
+    //         12'h?E?: begin o0= 2; end
+    //         12'h?F?: begin o0= 2; end
+    //         default: begin o0='X; n0=_; a0='X; end
+    //     endcase
+    //     o1 = o0;
+    //     n1 = n0;
+    //     a1 = {1'b0,t[5:4]}+3'd2; //3;//a0;
+    //     d1 = 0;
+    // end
 
-    always @(*) begin
-        n2 = _;
-        a2 = 0;
-        d2 = 0;
-        o2 = 4;
+    // always @(*) begin
+    //     n2 = _;
+    //     a2 = 0;
+    //     d2 = 0;
+    //     o2 = 4;
 
-        a2 = (t[3:2] == 0 || t[3:2] == 3) ? 2 : 1;
+    //     a2 = (t[3:2] == 0 || t[3:2] == 3) ? 2 : 1;
 
-        casez (t[13:2])
-            12'b0010_????_?0??: begin n2=E; end
-            12'b0010_????_?1??: begin n2=G; end
+    //     casez (t[13:2])
+    //         12'b0010_????_?0??: begin n2=E; end
+    //         12'b0010_????_?1??: begin n2=G; end
 
-            12'b0011_????_?0??: begin n2=F; end
-            12'b0011_????_?1??: begin n2=A; end
+    //         12'b0011_????_?0??: begin n2=F; end
+    //         12'b0011_????_?1??: begin n2=A; end
 
-            12'b0100_????_?0??: begin n2=As; end
-            12'b0100_????_?1??: begin n2=D; end
+    //         12'b0100_????_?0??: begin n2=As; end
+    //         12'b0100_????_?1??: begin n2=D; end
 
-            12'b0101_????_?0??: begin n2=C; end
-            12'b0101_????_?1??: begin n2=E; end
+    //         12'b0101_????_?0??: begin n2=C; end
+    //         12'b0101_????_?1??: begin n2=E; end
 
-            // Faster scales:
+    //         // Faster scales:
 
-            12'b0110_????_?00?: begin n2=C; end
-            12'b0110_????_?01?: begin n2=E; end
-            12'b0110_????_?10?: begin n2=G; end
-            12'b0110_????_?11?: begin n2=C; o2=5; end
+    //         12'b0110_????_?00?: begin n2=C; end
+    //         12'b0110_????_?01?: begin n2=E; end
+    //         12'b0110_????_?10?: begin n2=G; end
+    //         12'b0110_????_?11?: begin n2=C; o2=5; end
 
-            12'b0111_????_?00?: begin n2=C; end
-            12'b0111_????_?01?: begin n2=F; end
-            12'b0111_????_?10?: begin n2=A; end
-            12'b0111_????_?11?: begin n2=C; o2=5; end
+    //         12'b0111_????_?00?: begin n2=C; end
+    //         12'b0111_????_?01?: begin n2=F; end
+    //         12'b0111_????_?10?: begin n2=A; end
+    //         12'b0111_????_?11?: begin n2=C; o2=5; end
 
-            12'b1000_????_?00?: begin n2=D; end
-            12'b1000_????_?01?: begin n2=F; end
-            12'b1000_????_?10?: begin n2=As; end
-            12'b1000_????_?11?: begin n2=D; o2=5; end
+    //         12'b1000_????_?00?: begin n2=D; end
+    //         12'b1000_????_?01?: begin n2=F; end
+    //         12'b1000_????_?10?: begin n2=As; end
+    //         12'b1000_????_?11?: begin n2=D; o2=5; end
 
-            12'b1001_????_?00?: begin n2=C; end
-            12'b1001_????_?01?: begin n2=E; end
-            12'b1001_????_?10?: begin n2=G; end
-            12'b1001_????_?11?: begin n2=C; o2=5; end
+    //         12'b1001_????_?00?: begin n2=C; end
+    //         12'b1001_????_?01?: begin n2=E; end
+    //         12'b1001_????_?10?: begin n2=G; end
+    //         12'b1001_????_?11?: begin n2=C; o2=5; end
 
-            12'b1100_????_????: begin n2=C; o2=3; a2=2; end
+    //         12'b1100_????_????: begin n2=C; o2=3; a2=2; end
 
 
-            // 12'b0010_????_????: begin n2=Ds; end
-            // default: begin n2='X; end
-        endcase
-    end
 
+    //         // 12'b0010_????_????: begin n2=Ds; end
+    //         // default: begin n2='X; end
+    //     endcase
+    // end
+
+
+    // // always @(*) begin
+    // //     n3 = _;
+    // //     a3 = 0;
+    // //     d3 = 0;
+    // //     o3 = 4;
+    // //     casez (t[13:2])
+    // //         12'b1001_????_????: begin n3=C; o3=6; a3=(t[9:7]>=3) ? {1'b1,~t[9:8]} : 3'b100; end
+    // //         12'b1010_????_????: begin n3=C; o3=6; a3=3'b100; end
+    // //     endcase
+    // //     // casez (t[13:2])
+    // //     //     12'b0010_????_????: begin n3=G; end
+    // //     //     // 12'b0010_????_????: begin n2=Ds; end
+    // //     //     // default: begin n2='X; end
+    // //     // endcase
+    // // end
 
     // always @(*) begin
     //     n3 = _;
     //     a3 = 0;
     //     d3 = 0;
-    //     o3 = 4;
+    //     o3 = 3;
     //     casez (t[13:2])
-    //         12'b1001_????_????: begin n3=C; o3=6; a3=(t[9:7]>=3) ? {1'b1,~t[9:8]} : 3'b100; end
-    //         12'b1010_????_????: begin n3=C; o3=6; a3=3'b100; end
+    //         12'b1001_???0_????: begin n3=C;  a3=~t[9:7]; end
+    //         12'b1010_0_???_????: begin n3=C;  o3=3; end
+    //         12'b1010_1_???_????: begin n3=As; o3=2; end
+    //         12'b1011_0_???_????: begin n3=Ds; o3=2; end
+    //         12'b1011_1_???_????: begin n3=F;  o3=2; end
+
+    //         12'b1100_????_????: begin n3=C;  o3=2; end
+    //         12'b1101_????_????: begin n3=C;  o3=2; d3=1; end
     //     endcase
     //     // casez (t[13:2])
     //     //     12'b0010_????_????: begin n3=G; end
@@ -367,59 +1121,37 @@ module sequencer(
     //     // endcase
     // end
 
-    always @(*) begin
-        n3 = _;
-        a3 = 0;
-        d3 = 0;
-        o3 = 3;
-        casez (t[13:2])
-            12'b1001_???0_????: begin n3=C;  a3=~t[9:7]; end
-            12'b1010_0_???_????: begin n3=C;  o3=3; end
-            12'b1010_1_???_????: begin n3=As; o3=2; end
-            12'b1011_0_???_????: begin n3=Ds; o3=2; end
-            12'b1011_1_???_????: begin n3=F;  o3=2; end
 
-            12'b1100_????_????: begin n3=C;  o3=2; end
-            12'b1101_????_????: begin n3=C;  o3=2; d3=1; end
-        endcase
-        // casez (t[13:2])
-        //     12'b0010_????_????: begin n3=G; end
-        //     // 12'b0010_????_????: begin n2=Ds; end
-        //     // default: begin n2='X; end
-        // endcase
-    end
+    // // always @(*) begin
+    // //     casez (t[13:3]) // ~32.54ms granularity, and up to 4096 events: ~133 seconds. NOTE: 32 events is a little over 1 second.
+    // //         // 1st 16 notes (0.5s) are C4, and subsequent are just a major scale up to C5:
+    // //         11'h?0?: begin o0= 3; n0=C; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         11'h?1?: begin o0= 3; n0=D; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         11'h?2?: begin o0= 3; n0=E; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         11'h?3?: begin o0= 3; n0=F; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         11'h?4?: begin o0= 3; n0=G; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         11'h?5?: begin o0= 3; n0=A; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         11'h?6?: begin o0= 3; n0=B; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         11'h?7?: begin o0= 4; n0=C; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
+    // //         // Then a chord for the rest of the time...
+    // //         default: begin o0= 4; n0=C; a0=0; /* o1= 4; n1= R; */ end
+    // //         // Because most significant nibble is also covered by '?', the above sequence should also repeat continuously.
+    // //     endcase
+    // // end
 
+    // // assign d1 = t[10];// & ~t[9];
 
-    // always @(*) begin
-    //     casez (t[13:3]) // ~32.54ms granularity, and up to 4096 events: ~133 seconds. NOTE: 32 events is a little over 1 second.
-    //         // 1st 16 notes (0.5s) are C4, and subsequent are just a major scale up to C5:
-    //         11'h?0?: begin o0= 3; n0=C; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         11'h?1?: begin o0= 3; n0=D; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         11'h?2?: begin o0= 3; n0=E; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         11'h?3?: begin o0= 3; n0=F; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         11'h?4?: begin o0= 3; n0=G; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         11'h?5?: begin o0= 3; n0=A; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         11'h?6?: begin o0= 3; n0=B; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         11'h?7?: begin o0= 4; n0=C; a0=0; /* o1='X; n1= R; o2='X; o3='X; n2=R; n3=R;*/ end
-    //         // Then a chord for the rest of the time...
-    //         default: begin o0= 4; n0=C; a0=0; /* o1= 4; n1= R; */ end
-    //         // Because most significant nibble is also covered by '?', the above sequence should also repeat continuously.
-    //     endcase
-    // end
+    // // assign {d0,d2,d3} = 3'b000;
 
-    // assign d1 = t[10];// & ~t[9];
+    // // assign o1 = o0;
+    // // assign n1 = n0;
+    // // assign a1 = 1;
 
-    // assign {d0,d2,d3} = 3'b000;
-
-    // assign o1 = o0;
-    // assign n1 = n0;
-    // assign a1 = 1;
-
-    // assign n2 = C;
-    // assign o2 = 1;
-    // assign a2 = 0;
-    // assign n3 = C;
-    // assign o3 = 2;
-    // assign a3 = 0;
+    // // assign n2 = C;
+    // // assign o2 = 1;
+    // // assign a2 = 0;
+    // // assign n3 = C;
+    // // assign o3 = 2;
+    // // assign a3 = 0;
 
 endmodule
