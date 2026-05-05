@@ -57,10 +57,31 @@ module tt_um_algofoogle_test (
             frame_counter <= frame_counter + 1;
     end
 
+    wire [5:0] circle_radius = 6'd31+$signed( {5{frame_counter[7]}}^(frame_counter[6:2]) );
+    wire circle_start = (h==0);
+    wire circle_done;
+    wire circle_valid;
+    wire [5:0] circle_edge;
+    wire [5:0] circle_edge_valid = circle_edge & {6{circle_valid}};
+    wire signed [6:0] wave_sample = {7{v[7]}} ^ {1'b0,circle_edge_valid};
+
+    circle_edge slow_circle(
+        // Inputs:
+        .clk(clk),
+        .reset(reset),
+        .radius(circle_radius),
+        .vertical_line({6{v[6]}} ^ v[5:0]), // Circle is vertically symmetrical.
+        .start(circle_start),
+        // Outputs:
+        .done(circle_done),
+        .valid(circle_valid),
+        .edge_point(circle_edge)
+    );
+
     assign rgb = {
-        h[4:3]^v[4:3],
-        h[6:5]^v[6:5],
-        frame_counter[6:5]
+        (h>64) ? 2'b00 : {2{circle_done}},
+        (h>64) ? 2'b00 : {2{circle_valid}},
+        (h>128) ? {2{(h-128)>wave_sample}} : 2'b01
     };
 
     // List all unused inputs to prevent warnings:
