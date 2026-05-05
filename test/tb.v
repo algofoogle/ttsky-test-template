@@ -22,6 +22,14 @@ module tb ();
   wire [7:0] uo_out;
   wire [7:0] uio_out;
   wire [7:0] uio_oe;
+  wire rgb = {
+    uo_out[0],uo_out[4],
+    uo_out[1],uo_out[5],
+    uo_out[2],uo_out[6]
+  };
+  wire hsync = uo_out[7];
+  wire vsync = uo_out[3];
+
 `ifdef GL_TEST
   wire VPWR = 1'b1;
   wire VGND = 1'b0;
