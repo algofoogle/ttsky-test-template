@@ -18,8 +18,9 @@ module tt_um_algofoogle_test (
 
     wire reset = ~rst_n;
     // All output pins must be assigned. If not used, assign to 0:
-    assign uio_out = 0;
-    assign uio_oe  = 0;
+    assign uio_out[6:0] = 0;
+    assign uio_oe[6:0] = 0;
+    assign uio_oe[7] = 1;
 
     // Basic RGB222 VGA output routing with registered pixel RGB:
     wire hsync;
@@ -63,6 +64,7 @@ module tt_um_algofoogle_test (
     wire circle_valid;
     wire [5:0] circle_edge;
     wire signed [6:0] wave_sample = circle_valid ? {7{v[7]}} ^ {1'b0,~circle_edge} : 0;
+    wire signed [6:0] shaped_sample = wave_sample;// >>> 1;
 
     circle_edge slow_circle(
         // Inputs:
@@ -77,13 +79,51 @@ module tt_um_algofoogle_test (
         .edge_point(circle_edge)
     );
 
+    reg [6:0] shaped_sample_reg;
+    always @(posedge clk)
+        if (reset)
+            shaped_sample_reg <= 0;
+        else if (circle_done)
+            shaped_sample_reg <= shaped_sample;
+
+    wire [7:0] shaped_sample_unsigned_8b = (shaped_sample_reg << 1) + 8'd128;
+    wire dac_out;
+    assign uio_out[7] = dac_out;
+
+    sigmadelta_dac_8 dac(
+        .clk(clk),
+        .rst(reset),
+        .sample_in(shaped_sample_unsigned_8b),
+        .dac_out(dac_out)
+    );
+
     assign rgb = {
-        (h>64) ? 2'b00 : {2{circle_done}},
-        (h>64) ? 2'b00 : {2{circle_valid}},
-        (h>64) ? {2{$signed(h-128)>wave_sample}} : 2'b01
+        {2{dac_out}}, //(h>64) ? 2'b00 : {2{dac_out}},
+        2'b00, //(h>64) ? 2'b00 : {2{circle_valid}},
+        (h>64) ? {2{$signed(h-128)>shaped_sample}} : 2'b00
     };
 
     // List all unused inputs to prevent warnings:
     wire _unused = &{ena, ui_in, uio_in, 1'b0};
 
+endmodule
+
+module sigmadelta_dac_8(
+    input  wire       clk,
+    input  wire       rst,
+    input  wire [7:0] sample_in,
+    output reg        dac_out
+);
+    reg  [7:0] sd_err;
+    wire [8:0] sd_sum = {1'b0, sd_err} + {1'b0, sample_in};
+
+    always @(posedge clk) begin
+        if (rst) begin
+            sd_err  <= 8'd0;
+            dac_out <= 1'b0;
+        end else begin
+            sd_err  <= sd_sum[7:0];
+            dac_out <= sd_sum[8];
+        end
+    end
 endmodule
