@@ -62,8 +62,7 @@ module tt_um_algofoogle_test (
     wire circle_done;
     wire circle_valid;
     wire [5:0] circle_edge;
-    wire [5:0] circle_edge_valid = circle_edge & {6{circle_valid}};
-    wire signed [6:0] wave_sample = {7{v[7]}} ^ {1'b0,circle_edge_valid};
+    wire signed [6:0] wave_sample = circle_valid ? {7{v[7]}} ^ {1'b0,~circle_edge} : 0;
 
     circle_edge slow_circle(
         // Inputs:
@@ -81,7 +80,7 @@ module tt_um_algofoogle_test (
     assign rgb = {
         (h>64) ? 2'b00 : {2{circle_done}},
         (h>64) ? 2'b00 : {2{circle_valid}},
-        (h>128) ? {2{(h-128)>wave_sample}} : 2'b01
+        (h>64) ? {2{$signed(h-128)>wave_sample}} : 2'b01
     };
 
     // List all unused inputs to prevent warnings:
