@@ -98,11 +98,11 @@ module tt_um_algofoogle_test (
 
     localparam B = 8;
 
-    wire [B:0] p = {a[B-2:0],2'b00}; //v[5:0] + frame_counter[5:0];
+    wire [B:0] p = {v[6:0],2'b00};  //{a[B-2:0],2'b00}; //v[5:0] + frame_counter[5:0];
 
 
     wire signed [B-1:0] sample =
-        frame_counter[B+1]    ?   {B{p[B]}} :
+        frame_counter[6]    ?   {B{p[B]}} :
                                 (({B{p[B]}} ^ p[B-1:0]) + (1<<(B-1)));
 
     sigmadelta_dac #(.B(B)) dac(
@@ -112,13 +112,12 @@ module tt_um_algofoogle_test (
         .dac_out(dac_out)
     );
 
-    wire signed [8:0] visual_sample = {sample,{8-B+1{1'b0000}}};
+    wire signed [7:0] visual_sample = {sample,{7-B+1{1'b0000}}};
 
     assign rgb = {
-        {2{$signed(h-320)>visual_sample}},
-        // (h>64) ? {2{$signed(h-128)>sample}} : 2'b00,
-        {2{dac_out}}, //(h>64) ? 2'b00 : {2{dac_out}},
-        2'b00 //(h>64) ? 2'b00 : {2{circle_valid}},
+        {2{h<256 && $signed(h-128)>visual_sample}},
+        2'b00,
+        {2{h>=256 && dac_out && h<320}}
     };
 
     // List all unused inputs to prevent warnings:
