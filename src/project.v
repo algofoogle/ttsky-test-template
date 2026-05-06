@@ -58,20 +58,24 @@ module tt_um_algofoogle_test (
             frame_counter <= frame_counter + 1;
     end
 
-    wire [5:0] circle_radius = 6'd31+$signed( {5{frame_counter[7]}}^(frame_counter[6:2]) );
+    wire [9:0] a = (v>>2)+frame_counter;
+
+    wire [5:0] circle_radius = 6'd63; //6'd31+$signed( {5{frame_counter[7]}}^(frame_counter[6:2]) );
     wire circle_start = (h==0);
     wire circle_done;
     wire circle_valid;
     wire [5:0] circle_edge;
-    wire signed [6:0] wave_sample = circle_valid ? {7{v[7]}} ^ {1'b0,~circle_edge} : 0;
+    wire signed [6:0] wave_sample = circle_valid ? {7{a[7]}} ^ {1'b0,~circle_edge} : 0;
     wire signed [6:0] shaped_sample = wave_sample;// >>> 1;
+
+    wire [5:0] circle_input = ({6{a[6]}} ^ a[5:0]);// + shaped_sample_reg;
 
     circle_edge slow_circle(
         // Inputs:
         .clk(clk),
         .reset(reset),
         .radius(circle_radius),
-        .vertical_line({6{v[6]}} ^ v[5:0]), // Circle is vertically symmetrical.
+        .vertical_line(circle_input), // Circle is vertically symmetrical.
         .start(circle_start),
         // Outputs:
         .done(circle_done),
