@@ -96,27 +96,33 @@ module tt_um_algofoogle_test (
         else if (line_end)
             a <= a + 1;
 
-    localparam B = 8;
+    localparam B = 6;
 
-    wire [B:0] p = {v[6:0],2'b00};  //{a[B-2:0],2'b00}; //v[5:0] + frame_counter[5:0];
-
+    wire [B:0] p = {a[6:6-B]}; //v[5:0] + frame_counter[5:0]; // {v[6:0],2'b00}; // {a[B-2:0],2'b00};
 
     wire signed [B-1:0] sample =
-        frame_counter[6]    ?   {B{p[B]}} :
+        frame_counter[6]    ?   {B{p[B]}} ^ (1<<(B-1)) :
+                                //(p[B] ? 5'b1_0000 : 5'b0_1111) :
+                                //{B-1{p[B]}} ^ (1<<(B-1)) :
                                 (({B{p[B]}} ^ p[B-1:0]) + (1<<(B-1)));
 
     sigmadelta_dac #(.B(B)) dac(
         .clk(clk),
         .reset(reset),
-        .sample_in(sample),
+        .sample_in(sample+(1<<(B-1))),
         .dac_out(dac_out)
     );
 
     wire signed [7:0] visual_sample = {sample,{7-B+1{1'b0000}}};
 
+    wire [9:0] hlut = h-320;
+    wire [3:0] hlutcell = hlut[6:3];
+    wire in_hlut_cell = (hlut[9:3] < B);
+    wire [3:0] samplebit = (B-1-hlutcell);
+
     assign rgb = {
-        {2{h<256 && $signed(h-128)>visual_sample}},
-        2'b00,
+        {2{h<256 && $signed(h-128)==visual_sample}},
+        {2{h>=320 && in_hlut_cell && sample[samplebit]}},
         {2{h>=256 && dac_out && h<320}}
     };
 
@@ -130,7 +136,7 @@ module sigmadelta_dac #(
 ) (
     input  wire         clk,
     input  wire         reset,
-    input  wire signed [B-1:0] sample_in,
+    input  wire         [B-1:0] sample_in,
     output reg          dac_out //NOTE: Does this need to be registered??
 );
     reg  [B-1:0] sd_err;
