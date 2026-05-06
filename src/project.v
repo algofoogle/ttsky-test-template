@@ -58,53 +58,67 @@ module tt_um_algofoogle_test (
             frame_counter <= frame_counter + 1;
     end
 
-    wire [9:0] a = (v>>2)+frame_counter;
-
-    wire [5:0] circle_radius = 6'd63; //6'd31+$signed( {5{frame_counter[7]}}^(frame_counter[6:2]) );
-    wire circle_start = (h==0);
-    wire circle_done;
-    wire circle_valid;
-    wire [5:0] circle_edge;
-    wire signed [6:0] wave_sample = circle_valid ? {7{a[7]}} ^ {1'b0,~circle_edge} : 0;
-    wire signed [6:0] shaped_sample = wave_sample;// >>> 1;
-
-    wire [5:0] circle_input = ({6{a[6]}} ^ a[5:0]);// + shaped_sample_reg;
-
-    circle_edge slow_circle(
-        // Inputs:
-        .clk(clk),
-        .reset(reset),
-        .radius(circle_radius),
-        .vertical_line(circle_input), // Circle is vertically symmetrical.
-        .start(circle_start),
-        // Outputs:
-        .done(circle_done),
-        .valid(circle_valid),
-        .edge_point(circle_edge)
-    );
-
-    reg [6:0] shaped_sample_reg;
-    always @(posedge clk)
-        if (reset)
-            shaped_sample_reg <= 0;
-        else if (circle_done)
-            shaped_sample_reg <= shaped_sample;
-
-    wire [7:0] shaped_sample_unsigned_8b = (shaped_sample_reg << 1) + 8'd128;
+    // wire [9:0] a = (v>>2)+frame_counter;
+    // wire [5:0] circle_radius = 6'd63; //6'd31+$signed( {5{frame_counter[7]}}^(frame_counter[6:2]) );
+    // wire circle_start = (h==0);
+    // wire circle_done;
+    // wire circle_valid;
+    // wire [5:0] circle_edge;
+    // wire signed [6:0] wave_sample = circle_valid ? {7{a[7]}} ^ {1'b0,~circle_edge} : 0;
+    // wire signed [6:0] shaped_sample = wave_sample;// >>> 1;
+    // wire [5:0] circle_input = ({6{a[6]}} ^ a[5:0]);// + shaped_sample_reg;
+    // circle_edge slow_circle(
+    //     // Inputs:
+    //     .clk(clk),
+    //     .reset(reset),
+    //     .radius(circle_radius),
+    //     .vertical_line(circle_input), // Circle is vertically symmetrical.
+    //     .start(circle_start),
+    //     // Outputs:
+    //     .done(circle_done),
+    //     .valid(circle_valid),
+    //     .edge_point(circle_edge)
+    // );
+    // reg [6:0] shaped_sample_reg;
+    // always @(posedge clk)
+    //     if (reset)
+    //         shaped_sample_reg <= 0;
+    //     else if (circle_done)
+    //         shaped_sample_reg <= shaped_sample;
+    // wire [7:0] shaped_sample_unsigned_8b = (shaped_sample_reg << 1) + 8'd128;
     wire dac_out;
     assign uio_out[7] = dac_out;
 
-    sigmadelta_dac_8 dac(
+    reg [31:0] a;
+    always @(posedge clk)
+        if (reset)
+            a <= 0;
+        else if (line_end)
+            a <= a + 1;
+
+    localparam B = 8;
+
+    wire [B:0] p = {a[B-2:0],2'b00}; //v[5:0] + frame_counter[5:0];
+
+
+    wire signed [B-1:0] sample =
+        frame_counter[B+1]    ?   {B{p[B]}} :
+                                (({B{p[B]}} ^ p[B-1:0]) + (1<<(B-1)));
+
+    sigmadelta_dac #(.B(B)) dac(
         .clk(clk),
-        .rst(reset),
-        .sample_in(shaped_sample_unsigned_8b),
+        .reset(reset),
+        .sample_in(sample),
         .dac_out(dac_out)
     );
 
+    wire signed [8:0] visual_sample = {sample,{8-B+1{1'b0000}}};
+
     assign rgb = {
+        {2{$signed(h-320)>visual_sample}},
+        // (h>64) ? {2{$signed(h-128)>sample}} : 2'b00,
         {2{dac_out}}, //(h>64) ? 2'b00 : {2{dac_out}},
-        2'b00, //(h>64) ? 2'b00 : {2{circle_valid}},
-        (h>64) ? {2{$signed(h-128)>shaped_sample}} : 2'b00
+        2'b00 //(h>64) ? 2'b00 : {2{circle_valid}},
     };
 
     // List all unused inputs to prevent warnings:
@@ -112,22 +126,24 @@ module tt_um_algofoogle_test (
 
 endmodule
 
-module sigmadelta_dac_8(
-    input  wire       clk,
-    input  wire       rst,
-    input  wire [7:0] sample_in,
-    output reg        dac_out
+module sigmadelta_dac #(
+    parameter B = 5 // Sample bit resolution.
+) (
+    input  wire         clk,
+    input  wire         reset,
+    input  wire signed [B-1:0] sample_in,
+    output reg          dac_out //NOTE: Does this need to be registered??
 );
-    reg  [7:0] sd_err;
-    wire [8:0] sd_sum = {1'b0, sd_err} + {1'b0, sample_in};
+    reg  [B-1:0] sd_err;
+    wire [B:0] sd_sum = {1'b0, sd_err} + {1'b0, sample_in};
 
     always @(posedge clk) begin
-        if (rst) begin
-            sd_err  <= 8'd0;
-            dac_out <= 1'b0;
+        if (reset) begin
+            sd_err  <= 0;
+            dac_out <= 0;
         end else begin
-            sd_err  <= sd_sum[7:0];
-            dac_out <= sd_sum[8];
+            sd_err  <= sd_sum[B-1:0];
+            dac_out <= sd_sum[B];
         end
     end
 endmodule
