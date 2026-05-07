@@ -1,7 +1,7 @@
 `ifndef HVSYNC_GENERATOR_H
 `define HVSYNC_GENERATOR_H
 
-`define V512_SYNC_HACK // Ensure frame is 512 lines high instead of standard 525.
+// `define V512_SYNC_HACK // Ensure frame is 512 lines high instead of standard 525.
 
 /*
 Video sync generator, used to drive a VGA monitor.

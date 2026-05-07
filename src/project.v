@@ -69,26 +69,91 @@ module tt_um_algofoogle_test (
             a <= a + 1;
 
     localparam RSP = 6; // Rate scaling point: For B above this, phase is multiplied. Below it, phase is divided. This maintains desired frequency.
-    localparam B = 5; // Bit depth of audio samples. 8 smooth, minor harmonics. 9 smooth, distant harmonics. 10 ~clean. 6 present harmonics. 5 workable. 4 barely passes. 3 Atari.
+    localparam B = 12; // Bit depth of audio samples. 8 smooth, minor harmonics. 9 smooth, distant harmonics. 10 ~clean. 6 present harmonics. 5 workable. 4 barely passes. 3 Atari.
     localparam BS = B-RSP; // Bit left shift factor.
-    localparam SB = RSP-B; // BIt right shift factor.
+    localparam SB = RSP-B; // Bit right shift factor.
+    localparam SUB = 8; // Sub-resolution of the voice phase accumulator. SUB+B+1 is the total phase bit depth.
+
+    // Tuning based on B1=59.94Hz (making it possible for us to tune based on VSYNC):
+    // C2 = B1*2^(1/12) ~= 59.94*1.0595 ~= 63.5Hz
+    // Sampling rate (based on line_end) is (25175000/800)=31468.75Hz
+    // Hence, each sample is a fractional slice:
+    // n = 63.5/31468.75 ~= 0.0020179
+    // This becomes a portion of the full phase ramp range of 2^(B+SUB)=8192
+    // Hence, the frequency factor is C2=0.0020179*8192=16.53 => round up to 17
+    //                       f*1E6           RampRange      Fs*1000 Round /1000
+    localparam [63:0] P_C  = (( 63_504_217 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_Cs = (( 67_280_375 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_D  = (( 71_281_074 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_Ds = (( 75_519_667 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_E  = (( 80_010_300 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_F  = (( 84_767_960 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_Fs = (( 89_808_526 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_G  = (( 95_148_819 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_Gs = ((100_806_662 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_A  = ((106_800_938 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_As = ((113_151_652 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+    localparam [63:0] P_B  = ((119_880_000 * (2**(B+SUB+1)) / 31468750)+500)/1000;
+
+    initial $display("AAANTON", P_C, P_Cs, P_D, P_Ds, P_E, P_F, P_Fs, P_G, P_Gs, P_A, P_As, P_B);
 
     // // Phase comes from a continuous accumulator:
     // wire [B:0] p = (B>=RSP) ? a[B:0]<<BS : a[B+SB:SB];
-    // Phase comes from vertical line index (has 60Hz hard sync): //NOTE: hvsync_generator is currently hacked to use 512-line frame length.
-    wire [B:0] p = (B>=RSP) ? v[B:0]<<BS : v[B+SB:SB];
+    // // Phase comes from vertical line index (has 60Hz hard sync): //NOTE: hvsync_generator is currently hacked to use 512-line frame length.
+    // wire [B:0] p = (B>=RSP) ? v[B:0]<<BS : v[B+SB:SB];
+    // Phase comes from 'voice' phase accumulator:
+    reg [B+SUB+1:0] pi;
+    always @(*) begin
+        pi = P_B;//<<1;
+        case (frame_counter[9:6])
+        4'd0:  pi = P_C;
+        4'd1:  pi = P_D;
+        4'd2:  pi = P_E;
+        4'd3:  pi = P_F;
+        4'd4:  pi = P_G;
+        4'd5:  pi = P_A;
+        4'd6:  pi = P_B;
+        4'd7:  pi = P_G;
+        4'd8:  pi = P_Fs;
+        4'd9:  pi = P_D;
+        4'd10: pi = P_Cs;
+        4'd11: pi = P_D;
+
+
+        // 4'd0:  pi = P_C;
+        // 4'd1:  pi = P_Cs;
+        // 4'd2:  pi = P_D;
+        // 4'd3:  pi = P_Ds;
+        // 4'd4:  pi = P_E;
+        // 4'd5:  pi = P_F;
+        // 4'd6:  pi = P_Fs;
+        // 4'd7:  pi = P_G;
+        // 4'd8:  pi = P_Gs;
+        // 4'd9:  pi = P_A;
+        // 4'd10: pi = P_As;
+        // 4'd11: pi = P_B;
+        endcase
+    end
+
+    wire [B:0] p;
+    voice #(
+        .B(B+1), // Extra bit is sign for wave folding.
+        .SUB(SUB)
+    ) v1 (
+        .clk(clk),
+        .reset(reset),
+        .triga(line_end),
+        .inc(pi),
+        .sample_out(p)
+    );
 
     // Generate a signed square wave from the phase:
     wire signed [B-1:0] sq_sample = ({B{p[B]}} ^ (1<<(B-1)));
     // Generate a signed triangle wave from the phase:
     wire signed [B-1:0] tr_sample = (({B{p[B]}} ^ p[B-1:0]) + (1<<(B-1))); //NOTE: midpoint bias added for making this signed. Is there a way to avoid that?
-    // wire signed [4:0] lfo_base = (frame_counter[7] ? ~frame_counter[6:2] : frame_counter[6:2]);
-    // wire signed [B-1:0] lfo = {  {B-5{1'b0}}, lfo_base  };
-    // wire signed [B-1:0] lfo = {~lfo_base[4],lfo_base};// + (1<<(B-1)); //{  {B-5{1'b0}}, lfo_base  };
-    // wire signed [B-1:0] lfo = sq_sample; //(frame_counter[7] ? ~frame_counter[6:1] : frame_counter[6:1]) ^ (1<<(B-1));
 
     // Exponential attenuation factor:
-    wire [2:0] exp_atten = frame_counter[5:3];
+    wire [2:0] exp_atten = 0;//frame_counter[5:3];
 
     // Attenuates a signed sample by a given attenuation factor (right-shift amount):
     function signed [B-1:0] attenuated_sample;
@@ -103,9 +168,12 @@ module tt_um_algofoogle_test (
     endfunction
 
     // Mixer: Start with triangle sample, periodically add in square sample:
-    wire signed [B:0] mixed_sample =
-                            attenuated_sample(tr_sample, exp_atten) +
-        (frame_counter[7] ? attenuated_sample(sq_sample, exp_atten) : 0);
+    // wire signed [B:0] mixed_sample =
+    //                         attenuated_sample(tr_sample, exp_atten) +
+    //     (frame_counter[7] ? {3'd0,{3{vsync}}} : 0);
+    //                         // 0;
+    wire signed [B:0] mixed_sample = frame_counter[10] ? $signed({1'd0,{5{v>240}}}): tr_sample;
+        // (frame_counter[7] ? attenuated_sample(sq_sample, exp_atten) : 0);
     // Average mixing of the two samples:
     wire signed [B-1:0] sample = mixed_sample[B:1];
 
@@ -151,13 +219,27 @@ module tt_um_algofoogle_test (
 endmodule
 
 
-// module voice #(
-//     parameter B = 5
-// ) (
-
-// );
-
-// endmodule
+module voice #(
+    parameter B = 5,
+    parameter SUB = 8,
+    parameter MSB = B+SUB-1
+) (
+    input clk,
+    input reset,
+    input triga,
+    input [MSB:0] inc,
+    output [B-1:0] sample_out
+);
+    // localparam MSB = B+SUB-1;
+    reg [MSB:0] phase;
+    assign sample_out = phase[MSB:SUB];
+    always @(posedge clk) begin
+        if (reset)
+            phase <= 0;
+        else if (triga)
+            phase <= phase + {inc};
+    end
+endmodule
 
 
 module sigmadelta_dac #(
