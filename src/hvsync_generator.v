@@ -1,6 +1,8 @@
 `ifndef HVSYNC_GENERATOR_H
 `define HVSYNC_GENERATOR_H
 
+`define V512_SYNC_HACK // Ensure frame is 512 lines high instead of standard 525.
+
 /*
 Video sync generator, used to drive a VGA monitor.
 Timing from: https://en.wikipedia.org/wiki/Video_Graphics_Array
@@ -28,7 +30,11 @@ module hvsync_generator(clk, reset, hsync, vsync, display_on, hpos, vpos, line_e
     parameter H_SYNC          =  96; // horizontal sync width
     // vertical constants
     parameter V_DISPLAY       = 480; // vertical display height
-    parameter V_TOP           =  33; // vertical top border
+`ifdef V512_SYNC_HACK
+    parameter V_TOP           =  20; // vertical top border (HACKED FOR 512 TOTAL V LINES)
+`else
+    parameter V_TOP           =  33; // vertical top border (STANDARD)
+`endif
     parameter V_BOTTOM        =  10; // vertical bottom border
     parameter V_SYNC          =   2; // vertical sync # lines
     // derived constants

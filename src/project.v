@@ -58,34 +58,6 @@ module tt_um_algofoogle_test (
             frame_counter <= frame_counter + 1;
     end
 
-    // wire [9:0] a = (v>>2)+frame_counter;
-    // wire [5:0] circle_radius = 6'd63; //6'd31+$signed( {5{frame_counter[7]}}^(frame_counter[6:2]) );
-    // wire circle_start = (h==0);
-    // wire circle_done;
-    // wire circle_valid;
-    // wire [5:0] circle_edge;
-    // wire signed [6:0] wave_sample = circle_valid ? {7{a[7]}} ^ {1'b0,~circle_edge} : 0;
-    // wire signed [6:0] shaped_sample = wave_sample;// >>> 1;
-    // wire [5:0] circle_input = ({6{a[6]}} ^ a[5:0]);// + shaped_sample_reg;
-    // circle_edge slow_circle(
-    //     // Inputs:
-    //     .clk(clk),
-    //     .reset(reset),
-    //     .radius(circle_radius),
-    //     .vertical_line(circle_input), // Circle is vertically symmetrical.
-    //     .start(circle_start),
-    //     // Outputs:
-    //     .done(circle_done),
-    //     .valid(circle_valid),
-    //     .edge_point(circle_edge)
-    // );
-    // reg [6:0] shaped_sample_reg;
-    // always @(posedge clk)
-    //     if (reset)
-    //         shaped_sample_reg <= 0;
-    //     else if (circle_done)
-    //         shaped_sample_reg <= shaped_sample;
-    // wire [7:0] shaped_sample_unsigned_8b = (shaped_sample_reg << 1) + 8'd128;
     wire dac_out;
     assign uio_out[7] = dac_out;
 
@@ -96,40 +68,97 @@ module tt_um_algofoogle_test (
         else if (line_end)
             a <= a + 1;
 
-    localparam B = 6;
+    localparam RSP = 6; // Rate scaling point: For B above this, phase is multiplied. Below it, phase is divided. This maintains desired frequency.
+    localparam B = 5; // Bit depth of audio samples. 8 smooth, minor harmonics. 9 smooth, distant harmonics. 10 ~clean. 6 present harmonics. 5 workable. 4 barely passes. 3 Atari.
+    localparam BS = B-RSP; // Bit left shift factor.
+    localparam SB = RSP-B; // BIt right shift factor.
 
-    wire [B:0] p = {a[6:6-B]}; //v[5:0] + frame_counter[5:0]; // {v[6:0],2'b00}; // {a[B-2:0],2'b00};
+    // // Phase comes from a continuous accumulator:
+    // wire [B:0] p = (B>=RSP) ? a[B:0]<<BS : a[B+SB:SB];
+    // Phase comes from vertical line index (has 60Hz hard sync): //NOTE: hvsync_generator is currently hacked to use 512-line frame length.
+    wire [B:0] p = (B>=RSP) ? v[B:0]<<BS : v[B+SB:SB];
 
-    wire signed [B-1:0] sample =
-        frame_counter[6]    ?   {B{p[B]}} ^ (1<<(B-1)) :
-                                //(p[B] ? 5'b1_0000 : 5'b0_1111) :
-                                //{B-1{p[B]}} ^ (1<<(B-1)) :
-                                (({B{p[B]}} ^ p[B-1:0]) + (1<<(B-1)));
+    // Generate a signed square wave from the phase:
+    wire signed [B-1:0] sq_sample = ({B{p[B]}} ^ (1<<(B-1)));
+    // Generate a signed triangle wave from the phase:
+    wire signed [B-1:0] tr_sample = (({B{p[B]}} ^ p[B-1:0]) + (1<<(B-1))); //NOTE: midpoint bias added for making this signed. Is there a way to avoid that?
+    // wire signed [4:0] lfo_base = (frame_counter[7] ? ~frame_counter[6:2] : frame_counter[6:2]);
+    // wire signed [B-1:0] lfo = {  {B-5{1'b0}}, lfo_base  };
+    // wire signed [B-1:0] lfo = {~lfo_base[4],lfo_base};// + (1<<(B-1)); //{  {B-5{1'b0}}, lfo_base  };
+    // wire signed [B-1:0] lfo = sq_sample; //(frame_counter[7] ? ~frame_counter[6:1] : frame_counter[6:1]) ^ (1<<(B-1));
+
+    // Exponential attenuation factor:
+    wire [2:0] exp_atten = frame_counter[5:3];
+
+    // Attenuates a signed sample by a given attenuation factor (right-shift amount):
+    function signed [B-1:0] attenuated_sample;
+        input signed [B-1:0] sample;
+        input [2:0] afactor;
+        begin
+            if (afactor>=B)
+                attenuated_sample = 0; // Mute.
+            else
+                attenuated_sample = sample >>> afactor;
+        end
+    endfunction
+
+    // Mixer: Start with triangle sample, periodically add in square sample:
+    wire signed [B:0] mixed_sample =
+                            attenuated_sample(tr_sample, exp_atten) +
+        (frame_counter[7] ? attenuated_sample(sq_sample, exp_atten) : 0);
+    // Average mixing of the two samples:
+    wire signed [B-1:0] sample = mixed_sample[B:1];
 
     sigmadelta_dac #(.B(B)) dac(
         .clk(clk),
         .reset(reset),
-        .sample_in(sample+(1<<(B-1))),
+        .sample_in(sample+(1<<(B-1))), // signed => unsigned.
         .dac_out(dac_out)
     );
 
-    wire signed [7:0] visual_sample = {sample,{7-B+1{1'b0000}}};
+    // Generate a scaled version of the sample amplitude to fit within a 256-pixel range on screen:
+    function signed [7:0] visual_repr;
+        input [B-1:0] a;
+        begin
+            if (B<=8)
+                visual_repr = {a,{7-B+1{1'b0}}};
+            else
+                visual_repr = a[B-1:B-8];
+        end
+    endfunction
 
+    // Generate a visual representation of raw bits in the sample:
     wire [9:0] hlut = h-320;
     wire [3:0] hlutcell = hlut[6:3];
     wire in_hlut_cell = (hlut[9:3] < B);
     wire [3:0] samplebit = (B-1-hlutcell);
 
-    assign rgb = {
-        {2{h<256 && $signed(h-128)==visual_sample}},
-        {2{h>=320 && in_hlut_cell && sample[samplebit]}},
-        {2{h>=256 && dac_out && h<320}}
+    assign rgb =
+        h == 128 ? 6'b11_10_00 : // Waveform midline (0)
+    {
+        (h<256)                     ?   {2{$signed(h-128)==visual_repr(sample)}} : 2'b00,   // Waveform rendering.
+
+        (h>=320 && in_hlut_cell)    ?   {2{sample[samplebit]}} : 2'b00,                     // Sample bits rendering.
+
+        (h<256)                     ?   {2{$signed(h-128)==visual_repr(sq_sample)}} :       // Square wave.
+        (h<320)                     ?   {2{dac_out}} :
+                                        2'b00
     };
 
     // List all unused inputs to prevent warnings:
     wire _unused = &{ena, ui_in, uio_in, 1'b0};
 
 endmodule
+
+
+// module voice #(
+//     parameter B = 5
+// ) (
+
+// );
+
+// endmodule
+
 
 module sigmadelta_dac #(
     parameter B = 5 // Sample bit resolution.
